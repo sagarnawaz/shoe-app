@@ -41,7 +41,9 @@ import {
 const schema = z.object({
   date: z.string().min(1, "Date required"),
   description: z.string().min(1, "Description required"),
-  amount: z.coerce.number().min(0, "Amount required"),
+  amount: z.coerce
+    .number({ invalid_type_error: "Amount required" })
+    .min(0, "Amount required"),
   category: z.string().optional(),
   newCategory: z.string().optional(),
 });
@@ -77,7 +79,7 @@ export default function ExpenseForm({ mode }: { mode: "new" | "edit" }) {
     defaultValues: {
       date: todayString(),
       description: "",
-      amount: 0,
+      amount: "" as unknown as number,
       category: "",
       newCategory: "",
     },
@@ -241,11 +243,11 @@ export default function ExpenseForm({ mode }: { mode: "new" | "edit" }) {
                   <FormControl>
                     <Input
                       {...field}
-                      type="number"
-                      min={0}
-                      step={50}
+                      value={field.value ?? ""}
+                      type="text"
                       className="h-14 text-xl font-bold"
                       inputMode="numeric"
+                      pattern="[0-9]*"
                       data-testid="input-amount"
                     />
                   </FormControl>

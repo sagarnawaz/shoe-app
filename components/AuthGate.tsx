@@ -1,7 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Eye, EyeOff, Smartphone } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -85,74 +86,69 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!authenticated) {
     return (
-      <main className="min-h-screen bg-background px-4 py-8 flex items-center justify-center">
+      <main className="min-h-[100svh] bg-background px-4 py-5 flex items-center justify-center">
         <form
           onSubmit={submit}
-          className="w-full max-w-sm min-h-[560px] bg-card border border-border rounded-[28px] p-5 shadow-lg shadow-black/5 flex flex-col justify-between"
+          className="w-full max-w-[360px] bg-card border border-border rounded-3xl p-5 shadow-lg shadow-black/5"
         >
-          <div className="space-y-7">
-            <div className="pt-4 text-center space-y-4">
-              <div className="mx-auto flex size-20 items-center justify-center rounded-[24px] bg-teal-700 text-white shadow-md">
-                <Smartphone size={34} strokeWidth={2.4} />
-              </div>
-              <div className="space-y-1">
-                <h1 className="text-2xl font-bold">شو شاپ رجسٹر</h1>
-                <p className="text-sm text-muted-foreground">فون نمبر اور پاس ورڈ سے لاگ اِن کریں</p>
-              </div>
+          <div className="flex flex-col items-center text-center">
+            <Image src="/favicon.svg" alt="" width={80} height={80} className="rounded-3xl shadow-md" priority />
+            <h1 className="mt-5 text-2xl font-bold leading-tight">شو شاپ رجسٹر</h1>
+            <p className="mt-1 text-sm text-muted-foreground">فون نمبر اور پاس ورڈ سے لاگ اِن کریں</p>
+          </div>
+
+          <div className="mt-7 space-y-4">
+            <div className="space-y-2">
+              <label className="block text-right text-sm font-medium text-foreground" htmlFor="phone">
+                فون نمبر
+              </label>
+              <Input
+                id="phone"
+                type="tel"
+                required
+                inputMode="tel"
+                autoComplete="tel"
+                dir="ltr"
+                placeholder="+923001234567"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                className="h-14 min-h-14 rounded-2xl px-4 text-left text-base tabular-nums"
+              />
             </div>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="phone">
-                  فون نمبر
-                </label>
+            <div className="space-y-2">
+              <label className="block text-right text-sm font-medium text-foreground" htmlFor="password">
+                پاس ورڈ
+              </label>
+              <div className="relative">
                 <Input
-                  id="phone"
-                  type="tel"
+                  id="password"
+                  type={showPassword ? "text" : "password"}
                   required
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder="03001234567"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  className="h-14 rounded-2xl text-base"
+                  minLength={6}
+                  autoComplete="current-password"
+                  placeholder="پاس ورڈ"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="h-14 min-h-14 rounded-2xl px-4 pr-12 text-base"
                 />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="password">
-                  پاس ورڈ
-                </label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    required
-                    minLength={6}
-                    autoComplete="current-password"
-                    placeholder="پاس ورڈ"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    className="h-14 rounded-2xl pr-12 text-base"
-                  />
-                  <button
-                    type="button"
-                    aria-label={showPassword ? "پاس ورڈ چھپائیں" : "پاس ورڈ دکھائیں"}
-                    onClick={() => setShowPassword((value) => !value)}
-                    className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-muted-foreground"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  aria-label={showPassword ? "پاس ورڈ چھپائیں" : "پاس ورڈ دکھائیں"}
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-muted-foreground"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
           </div>
 
-          <div className="space-y-3 pb-1">
-            <Button type="submit" disabled={pending} className="w-full h-14 rounded-2xl text-base font-semibold">
-              {pending ? "انتظار کریں..." : "لاگ اِن / اکاؤنٹ بنائیں"}
-            </Button>
-            <p className="text-center text-xs text-muted-foreground">نیا فون نمبر خود بخود اکاؤنٹ بنا دے گا</p>
-          </div>
+          <Button type="submit" disabled={pending} className="mt-7 h-14 min-h-14 w-full rounded-2xl text-base font-semibold">
+            {pending ? "انتظار کریں..." : "لاگ اِن / اکاؤنٹ بنائیں"}
+          </Button>
+
+          <p className="mt-3 text-center text-xs text-muted-foreground">نیا فون نمبر خود بخود اکاؤنٹ بنا دے گا</p>
         </form>
       </main>
     );

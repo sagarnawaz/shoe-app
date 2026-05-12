@@ -172,3 +172,19 @@ grant select, insert, update, delete on all tables in schema public to anon;
 revoke all on public.app_users from anon;
 grant execute on function public.login_or_create_app_user(text, text) to anon;
 grant execute on function public.sell_stock_item(uuid, integer, uuid) to anon;
+
+insert into public.model_codes (user_id, code, is_default)
+values
+  (null, 'B19-1', true),
+  (null, 'B19-2', true),
+  (null, 'E999', true),
+  (null, 'ABC', true)
+on conflict do nothing;
+
+insert into public.expense_categories (user_id, name, is_default)
+values
+  (null, 'Rent', true),
+  (null, 'Electricity', true),
+  (null, 'Transport', true),
+  (null, 'Repairs', true)
+on conflict do nothing;

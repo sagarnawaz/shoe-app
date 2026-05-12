@@ -13,7 +13,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { formatPKR } from "@/lib/format";
-import { Plus, Search, Pencil, Trash2, ShoppingBag, X, Package, Minus } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, ShoppingBag, X, Package } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +32,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function Stock() {
   const [search, setSearch] = useState("");
@@ -262,42 +263,23 @@ export default function Stock() {
               </p>
               <div>
                 <p className="text-base font-semibold mb-2">تعداد / Quantity Sold</p>
-                <div className="flex items-center border border-input rounded-xl overflow-hidden h-16 select-none touch-none">
-                  <button
-                    type="button"
-                    disabled={sellQty <= 1}
-                    onPointerDown={(e) => { e.preventDefault(); if (sellQty > 1) setSellQty((q) => Math.max(1, q - 1)); }}
-                    className="flex items-center justify-center w-16 h-full bg-muted active:bg-primary/20 disabled:opacity-30 transition-colors shrink-0"
-                    data-testid="button-sell-minus"
-                  >
-                    <Minus size={22} strokeWidth={2.5} />
-                  </button>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={sellQty}
-                    min={1}
-                    max={sellItem.qty}
-                    onChange={(e) => {
-                      const v = parseInt(e.target.value, 10);
-                      if (e.target.value === "") { setSellQty(1); return; }
-                      if (!isNaN(v) && v >= 1 && v <= sellItem.qty) setSellQty(v);
-                    }}
-                    className="flex-1 h-full text-center text-3xl font-bold tabular-nums bg-transparent border-0 outline-none focus:ring-2 focus:ring-primary/40 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    style={{ direction: "ltr" }}
-                    data-testid="sell-qty-display"
-                  />
-                  <button
-                    type="button"
-                    disabled={sellQty >= sellItem.qty}
-                    onPointerDown={(e) => { e.preventDefault(); if (sellQty < sellItem.qty) setSellQty((q) => Math.min(sellItem.qty, q + 1)); }}
-                    className="flex items-center justify-center w-16 h-full bg-muted active:bg-primary/20 disabled:opacity-30 transition-colors shrink-0"
-                    data-testid="button-sell-plus"
-                  >
-                    <Plus size={22} strokeWidth={2.5} />
-                  </button>
-                </div>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={sellQty}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (e.target.value === "") {
+                      setSellQty(1);
+                      return;
+                    }
+                    if (!isNaN(v) && v >= 1 && v <= sellItem.qty) setSellQty(v);
+                  }}
+                  className="h-14 text-center text-2xl font-bold tabular-nums"
+                  style={{ direction: "ltr" }}
+                  data-testid="sell-qty-display"
+                />
               </div>
             </div>
           )}

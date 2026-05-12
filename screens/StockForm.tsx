@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useForm, Controller, useWatch } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -20,7 +20,7 @@ import {
 } from "@/lib/data-hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Minus, Plus, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 import {
   Form,
   FormField,
@@ -33,11 +33,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-/* ── Constants ───────────────────────────────────────── */
+/* Constants */
 const STANDARD_SIZES = ["39", "40", "41", "42", "43", "44", "45", "46"];
 const CUSTOM_MARKER = "__custom__";
 
-/* ── Schema with price validation ────────────────────── */
+/* Schema with price validation */
 const schema = z
   .object({
     modelCode: z.string().min(1, "ماڈل کوڈ ضروری ہے / Model code required"),
@@ -55,89 +55,7 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
-/* ── Hold-to-repeat stepper ──────────────────────────── */
-function QuantityStepper({
-  value,
-  onChange,
-  min = 0,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-}) {
-  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const holdInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const valueRef = useRef(value);
 
-  useEffect(() => { valueRef.current = value; }, [value]);
-
-  const stopHold = useCallback(() => {
-    if (holdTimer.current) { clearTimeout(holdTimer.current); holdTimer.current = null; }
-    if (holdInterval.current) { clearInterval(holdInterval.current); holdInterval.current = null; }
-  }, []);
-
-  useEffect(() => () => stopHold(), [stopHold]);
-
-  function startHold(direction: 1 | -1) {
-    const tick = () => {
-      const cur = valueRef.current;
-      if (direction === -1 && cur <= min) return;
-      onChange(direction === -1 ? Math.max(min, cur - 1) : cur + 1);
-    };
-    tick();
-    holdTimer.current = setTimeout(() => {
-      holdInterval.current = setInterval(tick, 80);
-    }, 400);
-  }
-
-  return (
-    <div className="flex items-center border border-input rounded-xl overflow-hidden h-14 select-none touch-none">
-      <button
-        type="button"
-        disabled={value <= min}
-        onPointerDown={(e) => { e.preventDefault(); if (value > min) startHold(-1); }}
-        onPointerUp={stopHold}
-        onPointerLeave={stopHold}
-        onPointerCancel={stopHold}
-        className="flex items-center justify-center w-14 h-full bg-muted active:bg-primary/20 disabled:opacity-30 transition-colors shrink-0"
-        data-testid="button-qty-minus"
-      >
-        <Minus size={20} strokeWidth={2.5} />
-      </button>
-
-      <input
-        type="number"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={value}
-        min={min}
-        onChange={(e) => {
-          const v = parseInt(e.target.value, 10);
-          if (e.target.value === "") { onChange(min); return; }
-          if (!isNaN(v) && v >= min) onChange(v);
-        }}
-        className="flex-1 h-full text-center text-2xl font-bold tabular-nums bg-transparent border-0 outline-none focus:ring-2 focus:ring-primary/40 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        style={{ direction: "ltr" }}
-        data-testid="input-qty-direct"
-        aria-label="تعداد"
-      />
-
-      <button
-        type="button"
-        onPointerDown={(e) => { e.preventDefault(); startHold(1); }}
-        onPointerUp={stopHold}
-        onPointerLeave={stopHold}
-        onPointerCancel={stopHold}
-        className="flex items-center justify-center w-14 h-full bg-muted active:bg-primary/20 transition-colors shrink-0"
-        data-testid="button-qty-plus"
-      >
-        <Plus size={20} strokeWidth={2.5} />
-      </button>
-    </div>
-  );
-}
-
-/* ── Main component ──────────────────────────────────── */
 export default function StockForm({ mode }: { mode: "new" | "edit" }) {
   const params = useParams<{ id?: string }>();
   const id = params?.id;
@@ -151,7 +69,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
   const isCustomModel = selectedChip === CUSTOM_MARKER;
   const isOtherSize = selectedSize === "Other";
 
-  /* ── Model codes from DB ───────────────────────────── */
+  /* Model codes from DB */
   const { data: modelCodes = [] } = useListModelCodes({
     query: { queryKey: getListModelCodesQueryKey() },
   });
@@ -178,8 +96,8 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
       name: "",
       size: "",
       quantity: 1,
-      purchasePrice: 0,
-      salePrice: 0,
+      purchasePrice: "" as unknown as number,
+      salePrice: "" as unknown as number,
       notes: "",
     },
   });
@@ -291,7 +209,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
-            {/* ── Model Code chips ───────────────────── */}
+            {/* Model code chips */}
             <FormField
               control={form.control}
               name="modelCode"
@@ -391,7 +309,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
               )}
             />
 
-            {/* ── Article Name ────────────────────────── */}
+            {/* Article name */}
             <FormField
               control={form.control}
               name="name"
@@ -412,7 +330,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
               )}
             />
 
-            {/* ── Size chips ──────────────────────────── */}
+            {/* Size chips */}
             <FormField
               control={form.control}
               name="size"
@@ -464,26 +382,30 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
               )}
             />
 
-            {/* ── Quantity stepper ───────────────────── */}
-            <Controller
+            {/* Quantity */}
+            <FormField
               control={form.control}
               name="quantity"
-              render={({ field, fieldState }) => (
-                <div className="space-y-1">
-                  <label className="text-base font-semibold block">تعداد / Quantity *</label>
-                  <QuantityStepper
-                    value={field.value}
-                    onChange={field.onChange}
-                    min={0}
-                  />
-                  {fieldState.error && (
-                    <p className="text-sm text-destructive">{fieldState.error.message}</p>
-                  )}
-                </div>
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-base font-semibold">تعداد / Quantity *</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      value={field.value ?? ""}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      className="h-14 text-base font-medium"
+                      data-testid="input-quantity"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
             />
 
-            {/* ── Prices ────────────────────────────── */}
+            {/* Prices */}
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-3">
                 <FormField
@@ -495,11 +417,11 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
                       <FormControl>
                         <Input
                           {...field}
-                          type="number"
-                          min={0}
-                          step={50}
+                          value={field.value ?? ""}
+                          type="text"
                           className="h-14 text-base font-medium"
                           inputMode="numeric"
+                          pattern="[0-9]*"
                           data-testid="input-purchase-price"
                         />
                       </FormControl>
@@ -516,11 +438,11 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
                       <FormControl>
                         <Input
                           {...field}
-                          type="number"
-                          min={0}
-                          step={50}
+                          value={field.value ?? ""}
+                          type="text"
                           className={`h-14 text-base font-medium ${priceWarning ? "border-red-400 focus-visible:ring-red-400" : ""}`}
                           inputMode="numeric"
+                          pattern="[0-9]*"
                           data-testid="input-sale-price"
                         />
                       </FormControl>
@@ -541,7 +463,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
               )}
             </div>
 
-            {/* ── Notes ─────────────────────────────── */}
+            {/* Notes */}
             <FormField
               control={form.control}
               name="notes"

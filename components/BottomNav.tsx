@@ -4,6 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Download, LayoutDashboard, LogOut, Package, Receipt } from "lucide-react";
 import { LOGOUT_EVENT, SESSION_KEY } from "@/lib/local-auth";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const tabs = [
   { href: "/", label: "ڈیش بورڈ", sublabel: "Dashboard", icon: LayoutDashboard },
@@ -52,18 +63,35 @@ export default function BottomNav() {
             </Link>
           );
         })}
-        <button
-          type="button"
-          onClick={logout}
-          className="flex-1 text-muted-foreground active:text-foreground"
-          data-testid="nav-logout"
-        >
-          <div className="flex flex-col items-center justify-center py-2 gap-0.5 min-h-[56px] transition-colors">
-            <LogOut size={22} strokeWidth={1.75} className="transition-all" />
-            <span className="text-[10px] font-medium leading-tight">لاگ آؤٹ</span>
-            <span className="text-[9px] leading-none opacity-60">Logout</span>
-          </div>
-        </button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button
+              type="button"
+              className="flex-1 text-muted-foreground active:text-foreground"
+              data-testid="nav-logout"
+            >
+              <div className="flex flex-col items-center justify-center py-2 gap-0.5 min-h-[56px] transition-colors">
+                <LogOut size={22} strokeWidth={1.75} className="transition-all" />
+                <span className="text-[10px] font-medium leading-tight">لاگ آؤٹ</span>
+                <span className="text-[9px] leading-none opacity-60">Logout</span>
+              </div>
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent className="w-[calc(100%-2rem)] rounded-2xl">
+            <AlertDialogHeader className="text-right">
+              <AlertDialogTitle>کیا آپ لاگ آؤٹ کرنا چاہتے ہیں؟</AlertDialogTitle>
+              <AlertDialogDescription>
+                لاگ آؤٹ کے بعد دوبارہ فون نمبر اور پاس ورڈ سے لاگ اِن کرنا ہوگا۔
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-2 sm:space-x-0">
+              <AlertDialogCancel className="h-12 mt-0">نہیں</AlertDialogCancel>
+              <AlertDialogAction onClick={logout} className="h-12 bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                ہاں، لاگ آؤٹ کریں
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </nav>
   );
