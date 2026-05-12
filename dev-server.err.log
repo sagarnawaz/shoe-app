@@ -1,0 +1,9 @@
+⚠ Port 3000 is in use by process 14624, using available port 3001 instead.
+⨯ Another next dev server is already running.
+
+- Local:        http://localhost:3000
+- PID:          14624
+- Dir:          C:\Users\DELL\Desktop\shoe-app
+- Log:          .next\dev\logs\next-development.log
+
+Run taskkill /PID 14624 /F to stop it.

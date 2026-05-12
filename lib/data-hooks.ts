@@ -2,41 +2,50 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "./supabase";
+import { getCurrentLocalUserId, requireCurrentLocalUserId } from "./local-auth";
 import { expenseInputToRow, stockInputToRow, toExpense, toExpenseCategory, toModelCode, toStockItem } from "./mappers";
 import type {
   DashboardSummary,
-  Expense,
-  ExpenseCategory,
   ExpenseInput,
-  ModelCode,
   MonthlyExpenseSummary,
   StockInput,
-  StockItem,
   SyncStatus,
 } from "./types";
 
-type QueryOptions<T> = { query?: { enabled?: boolean; queryKey?: unknown[] } };
+type QueryOptions = { query?: { enabled?: boolean; queryKey?: unknown[] } };
 
 function throwIfError(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
-export const getListStockQueryKey = (params?: { search?: string }) => ["stock", params ?? {}];
-export const getGetStockItemQueryKey = (id: string) => ["stock", id];
-export const getGetDashboardSummaryQueryKey = () => ["dashboard", "summary"];
-export const getGetLowStockQueryKey = () => ["dashboard", "low-stock"];
-export const getGetMonthlyExpensesQueryKey = () => ["dashboard", "monthly-expenses"];
-export const getListExpensesQueryKey = (params?: { month?: string; date?: string }) => ["expenses", params ?? {}];
-export const getListModelCodesQueryKey = () => ["model-codes"];
-export const getListExpenseCategoriesQueryKey = () => ["expense-categories"];
-export const getGetSyncStatusQueryKey = () => ["sync", "status"];
+export const getListStockQueryKey = (params?: { search?: string }) => ["stock", params ?? {}, getCurrentLocalUserId()];
+export const getGetStockItemQueryKey = (id: string) => ["stock", id, getCurrentLocalUserId()];
+export const getGetDashboardSummaryQueryKey = () => ["dashboard", "summary", getCurrentLocalUserId()];
+export const getGetLowStockQueryKey = () => ["dashboard", "low-stock", getCurrentLocalUserId()];
+export const getGetMonthlyExpensesQueryKey = () => ["dashboard", "monthly-expenses", getCurrentLocalUserId()];
+export const getListExpensesQueryKey = (params?: { month?: string; date?: string }) => ["expenses", params ?? {}, getCurrentLocalUserId()];
+export const getListModelCodesQueryKey = () => ["model-codes", getCurrentLocalUserId()];
+export const getListExpenseCategoriesQueryKey = () => ["expense-categories", getCurrentLocalUserId()];
+export const getGetSyncStatusQueryKey = () => ["sync", "status", getCurrentLocalUserId()];
 
-export function useListStock(params: { search?: string } = {}, options?: QueryOptions<StockItem[]>) {
+function ownerId() {
+  return requireCurrentLocalUserId();
+}
+
+function withOwner<T extends Record<string, unknown>>(row: T) {
+  return { ...row, user_id: ownerId() };
+}
+
+function ownAndDefaultFilter(userId: string) {
+  return `user_id.is.null,user_id.eq.${userId}`;
+}
+
+export function useListStock(params: { search?: string } = {}, options?: QueryOptions) {
   return useQuery({
     queryKey: options?.query?.queryKey ?? getListStockQueryKey(params),
     enabled: options?.query?.enabled,
     queryFn: async () => {
-      let query = supabase.from("stock_items").select("*").order("created_at", { ascending: false });
+      let query = supabase.from("stock_items").select("*").eq("user_id", ownerId()).order("created_at", { ascending: false });
       if (params.search) {
         const search = params.search.replaceAll(",", " ");
         query = query.or(`model_code.ilike.%${search}%,name.ilike.%${search}%`);
@@ -48,12 +57,12 @@ export function useListStock(params: { search?: string } = {}, options?: QueryOp
   });
 }
 
-export function useGetStockItem(id: string, options?: QueryOptions<StockItem>) {
+export function useGetStockItem(id: string, options?: QueryOptions) {
   return useQuery({
     queryKey: options?.query?.queryKey ?? getGetStockItemQueryKey(id),
     enabled: options?.query?.enabled ?? Boolean(id),
     queryFn: async () => {
-      const { data, error } = await supabase.from("stock_items").select("*").eq("id", id).single();
+      const { data, error } = await supabase.from("stock_items").select("*").eq("id", id).eq("user_id", ownerId()).single();
       throwIfError(error);
       return toStockItem(data);
     },
@@ -63,7 +72,7 @@ export function useGetStockItem(id: string, options?: QueryOptions<StockItem>) {
 export function useCreateStockItem() {
   return useMutation({
     mutationFn: async ({ data }: { data: StockInput }) => {
-      const { data: row, error } = await supabase.from("stock_items").insert(stockInputToRow(data)).select("*").single();
+      const { data: row, error } = await supabase.from("stock_items").insert(withOwner(stockInputToRow(data))).select("*").single();
       throwIfError(error);
       return toStockItem(row);
     },
@@ -77,6 +86,7 @@ export function useUpdateStockItem() {
         .from("stock_items")
         .update(stockInputToRow(data))
         .eq("id", id)
+        .eq("user_id", ownerId())
         .select("*")
         .single();
       throwIfError(error);
@@ -88,7 +98,7 @@ export function useUpdateStockItem() {
 export function useDeleteStockItem() {
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      const { error } = await supabase.from("stock_items").delete().eq("id", id);
+      const { error } = await supabase.from("stock_items").delete().eq("id", id).eq("user_id", ownerId());
       throwIfError(error);
     },
   });
@@ -100,6 +110,7 @@ export function useSellStockItem() {
       const { data: row, error } = await supabase.rpc("sell_stock_item", {
         item_id: id,
         sell_quantity: data.quantity,
+        owner_id: ownerId(),
       });
       throwIfError(error);
       return toStockItem(Array.isArray(row) ? row[0] : row);
@@ -107,12 +118,12 @@ export function useSellStockItem() {
   });
 }
 
-export function useListExpenses(params: { month?: string; date?: string } = {}, options?: QueryOptions<Expense[]>) {
+export function useListExpenses(params: { month?: string; date?: string } = {}, options?: QueryOptions) {
   return useQuery({
     queryKey: options?.query?.queryKey ?? getListExpensesQueryKey(params),
     enabled: options?.query?.enabled,
     queryFn: async () => {
-      let query = supabase.from("expenses").select("*");
+      let query = supabase.from("expenses").select("*").eq("user_id", ownerId());
       if (params.date) query = query.eq("date", params.date);
       if (params.month) query = query.gte("date", `${params.month}-01`).lt("date", nextMonthStart(params.month));
       const { data, error } = await query.order("date", { ascending: false }).order("created_at", { ascending: false });
@@ -125,7 +136,7 @@ export function useListExpenses(params: { month?: string; date?: string } = {}, 
 export function useCreateExpense() {
   return useMutation({
     mutationFn: async ({ data }: { data: ExpenseInput }) => {
-      const { data: row, error } = await supabase.from("expenses").insert(expenseInputToRow(data)).select("*").single();
+      const { data: row, error } = await supabase.from("expenses").insert(withOwner(expenseInputToRow(data))).select("*").single();
       throwIfError(error);
       return toExpense(row);
     },
@@ -135,7 +146,13 @@ export function useCreateExpense() {
 export function useUpdateExpense() {
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<ExpenseInput> }) => {
-      const { data: row, error } = await supabase.from("expenses").update(expenseInputToRow(data as ExpenseInput)).eq("id", id).select("*").single();
+      const { data: row, error } = await supabase
+        .from("expenses")
+        .update(expenseInputToRow(data as ExpenseInput))
+        .eq("id", id)
+        .eq("user_id", ownerId())
+        .select("*")
+        .single();
       throwIfError(error);
       return toExpense(row);
     },
@@ -145,18 +162,19 @@ export function useUpdateExpense() {
 export function useDeleteExpense() {
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      const { error } = await supabase.from("expenses").delete().eq("id", id);
+      const { error } = await supabase.from("expenses").delete().eq("id", id).eq("user_id", ownerId());
       throwIfError(error);
     },
   });
 }
 
-export function useListModelCodes(options?: QueryOptions<ModelCode[]>) {
+export function useListModelCodes(options?: QueryOptions) {
   return useQuery({
     queryKey: options?.query?.queryKey ?? getListModelCodesQueryKey(),
     enabled: options?.query?.enabled,
     queryFn: async () => {
-      const { data, error } = await supabase.from("model_codes").select("*").order("created_at");
+      const userId = ownerId();
+      const { data, error } = await supabase.from("model_codes").select("*").or(ownAndDefaultFilter(userId)).order("created_at");
       throwIfError(error);
       return (data ?? []).map(toModelCode);
     },
@@ -166,11 +184,17 @@ export function useListModelCodes(options?: QueryOptions<ModelCode[]>) {
 export function useCreateModelCode() {
   return useMutation({
     mutationFn: async ({ data }: { data: { code: string } }) => {
+      const userId = ownerId();
       const code = data.code.trim().toUpperCase();
-      const { data: existing, error: existingError } = await supabase.from("model_codes").select("*").eq("code", code).maybeSingle();
+      const { data: existing, error: existingError } = await supabase
+        .from("model_codes")
+        .select("*")
+        .eq("code", code)
+        .or(ownAndDefaultFilter(userId))
+        .maybeSingle();
       throwIfError(existingError);
       if (existing) return toModelCode(existing);
-      const { data: row, error } = await supabase.from("model_codes").insert({ code, is_default: false }).select("*").single();
+      const { data: row, error } = await supabase.from("model_codes").insert({ code, is_default: false, user_id: userId }).select("*").single();
       throwIfError(error);
       return toModelCode(row);
     },
@@ -180,18 +204,19 @@ export function useCreateModelCode() {
 export function useDeleteModelCode() {
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      const { error } = await supabase.from("model_codes").delete().eq("id", id).eq("is_default", false);
+      const { error } = await supabase.from("model_codes").delete().eq("id", id).eq("is_default", false).eq("user_id", ownerId());
       throwIfError(error);
     },
   });
 }
 
-export function useListExpenseCategories(options?: QueryOptions<ExpenseCategory[]>) {
+export function useListExpenseCategories(options?: QueryOptions) {
   return useQuery({
     queryKey: options?.query?.queryKey ?? getListExpenseCategoriesQueryKey(),
     enabled: options?.query?.enabled,
     queryFn: async () => {
-      const { data, error } = await supabase.from("expense_categories").select("*").order("created_at");
+      const userId = ownerId();
+      const { data, error } = await supabase.from("expense_categories").select("*").or(ownAndDefaultFilter(userId)).order("created_at");
       throwIfError(error);
       return (data ?? []).map(toExpenseCategory);
     },
@@ -201,11 +226,17 @@ export function useListExpenseCategories(options?: QueryOptions<ExpenseCategory[
 export function useCreateExpenseCategory() {
   return useMutation({
     mutationFn: async ({ data }: { data: { name: string } }) => {
+      const userId = ownerId();
       const name = data.name.trim();
-      const { data: existing, error: existingError } = await supabase.from("expense_categories").select("*").eq("name", name).maybeSingle();
+      const { data: existing, error: existingError } = await supabase
+        .from("expense_categories")
+        .select("*")
+        .eq("name", name)
+        .or(ownAndDefaultFilter(userId))
+        .maybeSingle();
       throwIfError(existingError);
       if (existing) return toExpenseCategory(existing);
-      const { data: row, error } = await supabase.from("expense_categories").insert({ name, is_default: false }).select("*").single();
+      const { data: row, error } = await supabase.from("expense_categories").insert({ name, is_default: false, user_id: userId }).select("*").single();
       throwIfError(error);
       return toExpenseCategory(row);
     },
@@ -216,7 +247,7 @@ export function useGetLowStock() {
   return useQuery({
     queryKey: getGetLowStockQueryKey(),
     queryFn: async () => {
-      const { data, error } = await supabase.from("stock_items").select("*").lt("quantity", 3).order("quantity");
+      const { data, error } = await supabase.from("stock_items").select("*").eq("user_id", ownerId()).lt("quantity", 3).order("quantity");
       throwIfError(error);
       return (data ?? []).map(toStockItem);
     },
@@ -227,7 +258,7 @@ export function useGetMonthlyExpenses() {
   return useQuery({
     queryKey: getGetMonthlyExpensesQueryKey(),
     queryFn: async (): Promise<MonthlyExpenseSummary[]> => {
-      const { data, error } = await supabase.from("expenses").select("date,amount").order("date", { ascending: false });
+      const { data, error } = await supabase.from("expenses").select("date,amount").eq("user_id", ownerId()).order("date", { ascending: false });
       throwIfError(error);
       const totals = new Map<string, { total: number; count: number }>();
       for (const row of data ?? []) {
@@ -249,10 +280,11 @@ export function useGetDashboardSummary() {
   return useQuery({
     queryKey: getGetDashboardSummaryQueryKey(),
     queryFn: async (): Promise<DashboardSummary> => {
+      const userId = ownerId();
       const [{ data: stock, error: stockError }, { data: expenses, error: expensesError }, { data: sync, error: syncError }] = await Promise.all([
-        supabase.from("stock_items").select("*"),
-        supabase.from("expenses").select("*"),
-        supabase.from("sync_log").select("synced_at").order("synced_at", { ascending: false }).limit(1),
+        supabase.from("stock_items").select("*").eq("user_id", userId),
+        supabase.from("expenses").select("*").eq("user_id", userId),
+        supabase.from("sync_log").select("synced_at").eq("user_id", userId).order("synced_at", { ascending: false }).limit(1),
       ]);
       throwIfError(stockError);
       throwIfError(expensesError);
@@ -284,10 +316,11 @@ export function useGetSyncStatus() {
   return useQuery({
     queryKey: getGetSyncStatusQueryKey(),
     queryFn: async (): Promise<SyncStatus> => {
+      const userId = ownerId();
       const [{ data: stock, error: stockError }, { data: expenses, error: expensesError }, { data: sync, error: syncError }] = await Promise.all([
-        supabase.from("stock_items").select("synced_at,updated_at"),
-        supabase.from("expenses").select("synced_at"),
-        supabase.from("sync_log").select("synced_at").order("synced_at", { ascending: false }).limit(1),
+        supabase.from("stock_items").select("synced_at,updated_at").eq("user_id", userId),
+        supabase.from("expenses").select("synced_at").eq("user_id", userId),
+        supabase.from("sync_log").select("synced_at").eq("user_id", userId).order("synced_at", { ascending: false }).limit(1),
       ]);
       throwIfError(stockError);
       throwIfError(expensesError);
@@ -316,7 +349,7 @@ export function usePushToSheets() {
 }
 
 export async function exportStockCsv() {
-  const { data, error } = await supabase.from("stock_items").select("*").order("model_code");
+  const { data, error } = await supabase.from("stock_items").select("*").eq("user_id", ownerId()).order("model_code");
   throwIfError(error);
   const rows = (data ?? []).map(toStockItem);
   return toCsv(
@@ -326,7 +359,13 @@ export async function exportStockCsv() {
 }
 
 export async function exportExpensesCsv(month: string) {
-  const { data, error } = await supabase.from("expenses").select("*").gte("date", `${month}-01`).lt("date", nextMonthStart(month)).order("date");
+  const { data, error } = await supabase
+    .from("expenses")
+    .select("*")
+    .eq("user_id", ownerId())
+    .gte("date", `${month}-01`)
+    .lt("date", nextMonthStart(month))
+    .order("date");
   throwIfError(error);
   const rows = (data ?? []).map(toExpense);
   const total = rows.reduce((sum, r) => sum + r.amount, 0);

@@ -1,108 +1,112 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
-import { hasSupabaseEnv, supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import {
+  getCurrentLocalUserId,
+  isValidPhoneNumber,
+  loginOrCreateAppUser,
+  LOGOUT_EVENT,
+  normalizePhoneNumber,
+  saveLocalUserSession,
+} from "@/lib/local-auth";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!hasSupabaseEnv) {
-      setLoading(false);
-      return;
+    setAuthenticated(Boolean(getCurrentLocalUserId()));
+    setLoading(false);
+
+    function handleLogout() {
+      setAuthenticated(false);
+      setPassword("");
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-    });
-
-    return () => data.subscription.unsubscribe();
+    window.addEventListener(LOGOUT_EVENT, handleLogout);
+    return () => window.removeEventListener(LOGOUT_EVENT, handleLogout);
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!hasSupabaseEnv) return;
-    setPending(true);
+    const normalizedPhone = normalizePhoneNumber(phone);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      const signUp = await supabase.auth.signUp({ email, password });
-      if (signUp.error) {
-        toast({
-          title: "Login failed",
-          description: signUp.error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Account created",
-          description: "Check email confirmation if your Supabase project requires it.",
-        });
-      }
+    if (!isValidPhoneNumber(normalizedPhone)) {
+      toast({
+        title: "درست فون نمبر درج کریں",
+        description: "مثال: 03001234567 یا +923001234567",
+        variant: "destructive",
+      });
+      return;
     }
 
-    setPending(false);
+    try {
+      setPending(true);
+      const user = await loginOrCreateAppUser(normalizedPhone, password);
+
+      if (user.created) {
+        toast({
+          title: "اکاؤنٹ بن گیا",
+          description: "اگلی بار اسی فون نمبر اور پاس ورڈ سے لاگ اِن کریں۔",
+        });
+      }
+
+      saveLocalUserSession(user.id, normalizedPhone);
+      setAuthenticated(true);
+      setPassword("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Please try again.";
+
+      toast({
+        title: "لاگ اِن ناکام",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setPending(false);
+    }
   }
 
   if (loading) {
     return <div className="min-h-screen bg-background" />;
   }
 
-  if (!hasSupabaseEnv) {
-    return (
-      <main className="min-h-screen bg-background px-4 py-8 flex items-center justify-center">
-        <div className="w-full max-w-sm bg-card border border-border rounded-xl p-5 shadow-sm space-y-2">
-          <h1 className="text-xl font-bold">Supabase setup required</h1>
-          <p className="text-sm text-muted-foreground">
-            Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in apps/web/.env.local.
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  if (!session) {
+  if (!authenticated) {
     return (
       <main className="min-h-screen bg-background px-4 py-8 flex items-center justify-center">
         <form onSubmit={submit} className="w-full max-w-sm bg-card border border-border rounded-xl p-5 shadow-sm space-y-4">
           <div>
-            <h1 className="text-xl font-bold">Shoe Shop Register</h1>
-            <p className="text-sm text-muted-foreground">Sign in to your shop ledger</p>
+            <h1 className="text-xl font-bold">شو شاپ رجسٹر</h1>
+            <p className="text-sm text-muted-foreground">فون نمبر اور پاس ورڈ سے لاگ اِن کریں</p>
           </div>
           <Input
-            type="email"
+            type="tel"
             required
-            placeholder="Email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="فون نمبر"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
             className="h-12"
           />
           <Input
             type="password"
             required
             minLength={6}
-            placeholder="Password"
+            placeholder="پاس ورڈ"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             className="h-12"
           />
           <Button type="submit" disabled={pending} className="w-full h-12">
-            {pending ? "Please wait..." : "Sign in / Create account"}
+            {pending ? "انتظار کریں..." : "لاگ اِن / اکاؤنٹ بنائیں"}
           </Button>
         </form>
       </main>

@@ -7,8 +7,8 @@ export const hasSupabaseEnv = Boolean(supabaseUrl && supabaseAnonKey);
 
 export const supabase = createClient(supabaseUrl ?? "https://example.supabase.co", supabaseAnonKey ?? "missing-anon-key", {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
   },
 });

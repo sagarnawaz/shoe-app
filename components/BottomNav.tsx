@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, Receipt, Download } from "lucide-react";
+import { Download, LayoutDashboard, LogOut, Package, Receipt } from "lucide-react";
+import { LOGOUT_EVENT, SESSION_KEY } from "@/lib/local-auth";
 
 const tabs = [
   { href: "/", label: "ڈیش بورڈ", sublabel: "Dashboard", icon: LayoutDashboard },
@@ -13,6 +14,11 @@ const tabs = [
 
 export default function BottomNav() {
   const location = usePathname() ?? "/";
+
+  function logout() {
+    localStorage.removeItem(SESSION_KEY);
+    window.dispatchEvent(new Event(LOGOUT_EVENT));
+  }
 
   return (
     <nav
@@ -46,6 +52,18 @@ export default function BottomNav() {
             </Link>
           );
         })}
+        <button
+          type="button"
+          onClick={logout}
+          className="flex-1 text-muted-foreground active:text-foreground"
+          data-testid="nav-logout"
+        >
+          <div className="flex flex-col items-center justify-center py-2 gap-0.5 min-h-[56px] transition-colors">
+            <LogOut size={22} strokeWidth={1.75} className="transition-all" />
+            <span className="text-[10px] font-medium leading-tight">لاگ آؤٹ</span>
+            <span className="text-[9px] leading-none opacity-60">Logout</span>
+          </div>
+        </button>
       </div>
     </nav>
   );
