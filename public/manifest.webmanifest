@@ -1,0 +1,19 @@
+{
+  "name": "Shoe Shop Register",
+  "short_name": "Shoe Register",
+  "description": "Shoe shop stock and expense management",
+  "theme_color": "#1d4ed8",
+  "background_color": "#f5f7fa",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
