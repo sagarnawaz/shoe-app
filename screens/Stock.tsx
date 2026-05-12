@@ -71,8 +71,7 @@ export default function Stock() {
 
   function handleSell() {
     if (!sellItem) return;
-    const qty = sellQty;
-    if (qty <= 0) return;
+    const qty = Math.min(Math.max(Number(sellQty) || 0, 1), sellItem.qty);
     sellMutation.mutate({ id: sellItem.id, data: { quantity: qty } }, {
       onSuccess: () => {
         toast({ title: "✓ فروخت ہو گیا!", description: `${sellItem.modelCode} — ${qty} جوڑا فروخت ہوا` });
@@ -200,7 +199,7 @@ export default function Stock() {
 
             <div className="flex gap-2 mt-2">
               <button
-                onClick={() => { setSellItem({ id: item.id, modelCode: item.modelCode, qty: item.quantity }); setSellQty(1); }}
+                onClick={() => { setSellItem({ id: item.id, modelCode: item.modelCode, qty: item.quantity }); setSellQty(0); }}
                 disabled={item.quantity === 0}
                 className="flex-1 flex items-center justify-center gap-1.5 bg-primary text-primary-foreground rounded-xl min-h-[48px] text-sm font-semibold active:opacity-90 disabled:opacity-40 transition-opacity"
                 data-testid={`button-sell-${item.id}`}
@@ -267,11 +266,11 @@ export default function Stock() {
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  value={sellQty}
+                  value={sellQty || ""}
                   onChange={(e) => {
                     const v = parseInt(e.target.value, 10);
                     if (e.target.value === "") {
-                      setSellQty(1);
+                      setSellQty(0);
                       return;
                     }
                     if (!isNaN(v) && v >= 1 && v <= sellItem.qty) setSellQty(v);
@@ -289,7 +288,7 @@ export default function Stock() {
             </Button>
             <Button
               onClick={handleSell}
-              disabled={sellMutation.isPending}
+              disabled={sellMutation.isPending || sellQty < 1}
               className="h-12 text-base"
               data-testid="button-confirm-sell"
             >
