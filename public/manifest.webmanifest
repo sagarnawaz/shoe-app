@@ -1,7 +1,7 @@
 {
-  "name": "Shoe Shop Register",
-  "short_name": "Shoe Register",
-  "description": "Shoe shop stock and expense management",
+  "name": "امین شوز ہاؤس",
+  "short_name": "امین شوز",
+  "description": "امین شوز ہاؤس اسٹاک مینجمنٹ",
   "theme_color": "#0f766e",
   "background_color": "#f8fafc",
   "display": "standalone",

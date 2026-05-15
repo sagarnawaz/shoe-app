@@ -50,9 +50,11 @@ notify pgrst, 'reload schema';
 create table if not exists public.stock_items (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references public.app_users(id) on delete cascade,
+  brand text,
   model_code text not null,
   name text,
   size text not null,
+  sizes jsonb not null default '[]'::jsonb,
   quantity integer not null default 0 check (quantity >= 0),
   purchase_price numeric(12, 2) not null check (purchase_price >= 0),
   sale_price numeric(12, 2) not null check (sale_price >= 0),

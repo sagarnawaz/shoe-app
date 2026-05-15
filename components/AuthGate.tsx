@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +23,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
+  const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -64,6 +66,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       saveLocalUserSession(user.id, normalizedPhone);
       setAuthenticated(true);
       setPassword("");
+      router.replace("/");
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : "Please try again.";
       const message = rawMessage.includes("Phone number or password is incorrect")
@@ -93,14 +96,15 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         >
           <div className="flex flex-col items-center text-center">
             <Image src="/favicon.svg" alt="" width={80} height={80} className="rounded-3xl shadow-md" priority />
-            <h1 className="mt-5 text-2xl font-bold leading-tight">شو شاپ رجسٹر</h1>
-            <p className="mt-1 text-sm text-muted-foreground">فون نمبر اور پاس ورڈ سے لاگ اِن کریں</p>
+            <h1 className="mt-5 text-2xl font-black leading-tight">امین شوز ہاؤس</h1>
+            <p className="mt-2 text-sm text-muted-foreground">فون نمبر اور پاس ورڈ سے لاگ اِن کریں</p>
           </div>
 
           <div className="mt-7 space-y-4">
             <div className="space-y-2">
-              <label className="block text-right text-sm font-medium text-foreground" htmlFor="phone">
-                فون نمبر
+              <label className="flex items-center justify-start gap-1.5 text-left text-sm font-medium text-foreground" htmlFor="phone">
+                <span dir="ltr">Phone No /</span>
+                <span dir="rtl">فون نمبر</span>
               </label>
               <Input
                 id="phone"
@@ -117,8 +121,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-right text-sm font-medium text-foreground" htmlFor="password">
-                پاس ورڈ
+              <label className="flex items-center justify-start gap-1.5 text-left text-sm font-medium text-foreground" htmlFor="password">
+                <span dir="ltr">Password /</span>
+                <span dir="rtl">پاس ورڈ</span>
               </label>
               <div className="relative">
                 <Input

@@ -1,9 +1,12 @@
 export interface StockItem {
   id: string;
+  brand: string | null;
   modelCode: string;
   name: string | null;
   size: string;
+  sizes: Array<{ size: string; quantity: number; soldQuantity?: number }>;
   quantity: number;
+  totalQuantity: number;
   purchasePrice: number;
   salePrice: number;
   notes: string | null;
@@ -64,10 +67,13 @@ export interface SyncStatus {
 }
 
 export interface StockInput {
+  brand?: string;
   modelCode: string;
   name?: string;
-  size: string;
-  quantity: number;
+  size?: string;
+  quantity?: number;
+  sizes?: Array<{ size: string; quantity: number; soldQuantity?: number }>;
+  soldCount?: number;
   purchasePrice: number;
   salePrice: number;
   notes?: string;

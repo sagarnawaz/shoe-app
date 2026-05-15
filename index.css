@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
@@ -111,7 +111,7 @@
   --chart-4: 0 72% 51%;
   --chart-5: 262 60% 55%;
 
-  --app-font-sans: 'Inter', system-ui, sans-serif;
+  --app-font-sans: 'Inter', 'Noto Nastaliq Urdu', system-ui, sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
   --radius: 0.625rem;
@@ -219,6 +219,11 @@
     @apply font-sans antialiased bg-background text-foreground;
     /* Prevent overscroll bounce on mobile */
     overscroll-behavior: none;
+  }
+
+  :lang(ur), [dir="rtl"] {
+    font-family: 'Noto Nastaliq Urdu', 'Inter', system-ui, sans-serif;
+    line-height: 1.9;
   }
 }
 

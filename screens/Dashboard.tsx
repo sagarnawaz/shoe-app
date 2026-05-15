@@ -1,137 +1,122 @@
 "use client";
 
 import Link from "next/link";
-import { useGetDashboardSummary, useGetLowStock, useGetMonthlyExpenses, usePushToSheets, getGetDashboardSummaryQueryKey, getGetSyncStatusQueryKey } from "@/lib/data-hooks";
-import { useQueryClient } from "@tanstack/react-query";
-import { formatPKR } from "@/lib/format";
-import { useToast } from "@/hooks/use-toast";
-import { Package, Receipt, AlertTriangle, TrendingUp, RefreshCw, Plus, BadgeDollarSign, Coins } from "lucide-react";
+import { useMemo } from "react";
+import { AlertTriangle, Boxes, Package, Plus, ShoppingBag } from "lucide-react";
+import { getListStockQueryKey, useListStock } from "@/lib/data-hooks";
 
 export default function Dashboard() {
-  const { data: summary, isLoading } = useGetDashboardSummary();
-  const { data: lowStock } = useGetLowStock();
-  const { data: monthlyExpenses } = useGetMonthlyExpenses();
-  const pushToSheets = usePushToSheets();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { data: items = [], isLoading } = useListStock(
+    {},
+    { query: { queryKey: getListStockQueryKey() } },
+  );
 
-  function handleSync() {
-    pushToSheets.mutate(undefined, {
-      onSuccess: (data) => {
-        queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetSyncStatusQueryKey() });
-        toast({
-          title: "Sync Complete",
-          description: data.message ?? "Data synced to Google Sheets",
-        });
-      },
-      onError: () => {
-        toast({
-          title: "Sync Failed",
-          description: "Could not sync to Google Sheets",
-          variant: "destructive",
-        });
-      },
-    });
-  }
+  const stats = useMemo(() => {
+    const totalPairs = items.reduce((sum, item) => sum + item.quantity, 0);
+    const soldPairs = items.reduce((sum, item) => sum + item.soldCount, 0);
+    const lowSizes = items.flatMap((item) =>
+      item.sizes
+        .filter((entry) => entry.quantity > 0 && entry.quantity <= 3)
+        .map((entry) => ({ item, entry })),
+    );
+    const finishedSizes = items.flatMap((item) =>
+      item.sizes
+        .filter((entry) => entry.quantity === 0)
+        .map((entry) => ({ item, entry })),
+    );
+
+    return {
+      totalPairs,
+      soldPairs,
+      articleCount: items.length,
+      lowSizes,
+      finishedSizes,
+    };
+  }, [items]);
 
   return (
-    <div className="pb-nav">
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground px-4 pt-6 pb-8">
-        <div className="flex items-center justify-between mb-1">
+    <div className="pb-nav min-h-screen bg-muted/40">
+      <header className="bg-primary px-4 pb-8 pt-6 text-primary-foreground">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold">جوتا رجسٹر</h1>
-            <p className="text-sm opacity-80">Shoe Shop Register</p>
+            <h1 className="text-2xl font-black leading-tight">امین شوز ہاؤس</h1>
+            <p className="mt-2 text-sm opacity-85">Aaj ka stock asani se dekhein</p>
           </div>
-          <button
-            onClick={handleSync}
-            disabled={pushToSheets.isPending}
-            className="flex items-center gap-1.5 bg-white/20 active:bg-white/30 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
-            data-testid="button-sync"
-          >
-            <RefreshCw size={15} className={pushToSheets.isPending ? "animate-spin" : ""} />
-            <span>Sync</span>
-          </button>
+          <Link href="/stock/new">
+            <button
+              className="flex min-h-[48px] items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-primary shadow-lg shadow-black/10 active:opacity-90"
+              data-testid="button-add-stock"
+            >
+              <Plus size={17} />
+              <span>Add / شامل</span>
+            </button>
+          </Link>
         </div>
       </header>
 
-      <div className="px-4 -mt-4 space-y-4">
-        {/* Quick stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard
+      <main className="-mt-4 space-y-4 px-4 pb-28">
+        <section className="grid grid-cols-2 gap-3">
+          <BigStatCard
             loading={isLoading}
-            label="کل اسٹاک / Total Stock"
-            value={summary?.totalStockCount?.toString() ?? "—"}
-            sublabel="units in store"
-            icon={<Package size={18} className="text-primary" />}
-            bg="bg-card"
+            label="Total Stock / کل اسٹاک"
+            value={String(stats.totalPairs)}
+            sublabel="pairs / جوڑے"
+            icon={<Package size={19} />}
           />
-          <StatCard
+          <BigStatCard
             loading={isLoading}
-            label="آج کی فروخت / Today's Sales"
-            value={summary?.todaySales?.toString() ?? "—"}
-            sublabel={summary ? formatPKR(summary.todaySalesAmount) : ""}
-            icon={<TrendingUp size={18} className="text-emerald-600" />}
-            bg="bg-card"
+            label="Articles / آرٹیکل"
+            value={String(stats.articleCount)}
+            sublabel="items / آئٹمز"
+            icon={<Boxes size={19} />}
           />
-          <StatCard
+          <BigStatCard
             loading={isLoading}
-            label="آج کا منافع / Today's Profit"
-            value={summary ? formatPKR(summary.todayProfit) : "—"}
-            sublabel="from today's sales"
-            icon={<BadgeDollarSign size={18} className="text-emerald-600" />}
-            bg={summary && summary.todayProfit > 0 ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800" : "bg-card"}
+            label="Sold / فروخت"
+            value={String(stats.soldPairs)}
+            sublabel="pairs / جوڑے"
+            icon={<ShoppingBag size={19} />}
           />
-          <StatCard
+          <BigStatCard
             loading={isLoading}
-            label="کل منافع / Total Profit"
-            value={summary ? formatPKR(summary.totalProfit) : "—"}
-            sublabel="all time"
-            icon={<Coins size={18} className="text-yellow-600" />}
-            bg="bg-card"
+            label="Low Stock / کم اسٹاک"
+            value={String(stats.lowSizes.length)}
+            sublabel="sizes / سائز"
+            icon={<AlertTriangle size={19} />}
+            danger={stats.lowSizes.length > 0}
           />
-          <StatCard
-            loading={isLoading}
-            label="ماہانہ اخراجات / Month Expenses"
-            value={summary ? formatPKR(summary.thisMonthExpenses) : "—"}
-            sublabel="this month"
-            icon={<Receipt size={18} className="text-amber-600" />}
-            bg="bg-card"
-          />
-          <StatCard
-            loading={isLoading}
-            label="کم اسٹاک / Low Stock"
-            value={summary?.lowStockCount?.toString() ?? "—"}
-            sublabel="items below 3 units"
-            icon={<AlertTriangle size={18} className={summary && summary.lowStockCount > 0 ? "text-red-500" : "text-muted-foreground"} />}
-            bg={summary && summary.lowStockCount > 0 ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800" : "bg-card"}
-          />
-        </div>
+        </section>
 
-        {/* Low stock alerts */}
-        {lowStock && lowStock.length > 0 && (
-          <section>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Low Stock Alert
-            </h2>
-            <div className="space-y-2">
-              {lowStock.map((item) => (
-                <Link key={item.id} href={`/stock/${item.id}/edit`}>
-                  <div
-                    className="flex items-center justify-between bg-card border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 active:bg-muted transition-colors"
-                    data-testid={`low-stock-item-${item.id}`}
-                  >
-                    <div>
-                      <p className="font-semibold text-sm">{item.modelCode}</p>
-                      {item.name && <p className="text-xs text-muted-foreground">{item.name}</p>}
-                      <p className="text-xs text-muted-foreground">Size {item.size}</p>
+        {(stats.lowSizes.length > 0 || stats.finishedSizes.length > 0) && (
+          <section className="rounded-xl border border-border bg-card p-3 shadow-sm">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold">Stock Alert / اسٹاک الرٹ</h2>
+                <p className="text-xs text-muted-foreground">
+                  {stats.finishedSizes.length + stats.lowSizes.length} sizes need attention
+                </p>
+              </div>
+              <AlertTriangle
+                size={20}
+                className={stats.finishedSizes.length > 0 ? "text-red-500" : "text-amber-500"}
+              />
+            </div>
+
+            <div className="max-h-80 space-y-2 overflow-y-auto overscroll-contain pr-1">
+              {[...stats.finishedSizes, ...stats.lowSizes].map(({ item, entry }) => (
+                <Link key={`${item.id}-${entry.size}`} href={`/stock/${item.id}`}>
+                  <div className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl bg-muted px-3 py-2 active:bg-muted/70">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold">{item.brand || item.modelCode}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.modelCode} - Size / سائز {entry.size}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <span className={`text-lg font-bold ${item.quantity === 0 ? "text-red-600" : "text-amber-600"}`}>
-                        {item.quantity}
-                      </span>
-                      <p className="text-xs text-muted-foreground">units left</p>
+                      <p className={`text-xl font-black tabular-nums ${entry.quantity === 0 ? "text-red-600" : "text-amber-600"}`}>
+                        {entry.quantity}
+                      </p>
+                      <p className="text-xs text-muted-foreground">pairs</p>
                     </div>
                   </div>
                 </Link>
@@ -140,95 +125,75 @@ export default function Dashboard() {
           </section>
         )}
 
-        {/* Monthly expense chart */}
-        {monthlyExpenses && monthlyExpenses.length > 0 && (
-          <section>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Monthly Expenses
-            </h2>
-            <div className="bg-card border border-border rounded-xl p-4 space-y-2">
-              {monthlyExpenses.map((m) => {
-                const maxVal = Math.max(...monthlyExpenses.map((x) => x.total));
-                const pct = maxVal > 0 ? (m.total / maxVal) * 100 : 0;
-                return (
-                  <div key={m.month} data-testid={`monthly-expense-${m.month}`}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-muted-foreground">{m.month}</span>
-                      <span className="font-medium">{formatPKR(m.total)}</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        {!isLoading && items.length === 0 && (
+          <section className="rounded-xl border border-border bg-card p-6 text-center shadow-sm">
+            <Package size={44} className="mx-auto mb-3 text-muted-foreground opacity-40" />
+            <h2 className="text-lg font-bold">No Stock / کوئی اسٹاک نہیں</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Pehla shoe add karein.</p>
+            <Link href="/stock/new">
+              <button className="mt-5 inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground">
+                <Plus size={18} />
+                <span>Add Shoe / جوتا شامل کریں</span>
+              </button>
+            </Link>
           </section>
         )}
 
-        {/* Quick Actions */}
-        <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            Quick Actions
-          </h2>
+        <section className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-border bg-background/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
+          <h2 className="mb-2 text-xs font-bold text-muted-foreground">Quick Work / فوری کام</h2>
           <div className="grid grid-cols-2 gap-3">
             <Link href="/stock/new">
-              <button
-                className="w-full flex items-center gap-3 bg-primary text-primary-foreground rounded-xl px-4 py-4 font-semibold text-sm active:opacity-90 transition-opacity"
-                data-testid="button-add-stock"
-              >
+              <button className="flex min-h-[54px] w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-3 text-sm font-bold text-primary-foreground active:opacity-90">
                 <Plus size={18} />
-                <span>جوتا شامل / Add Shoe</span>
+                <span dir="rtl">اسٹاک شامل کریں</span>
               </button>
             </Link>
-            <Link href="/expenses/new">
-              <button
-                className="w-full flex items-center gap-3 bg-card border border-border text-foreground rounded-xl px-4 py-4 font-semibold text-sm active:bg-muted transition-colors"
-                data-testid="button-add-expense"
-              >
-                <Plus size={18} />
-                <span>اخراجات / Add Expense</span>
+            <Link href="/stock">
+              <button className="flex min-h-[54px] w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 py-3 text-sm font-bold active:bg-muted">
+                <Package size={18} />
+                <span dir="rtl">اسٹاک دیکھیں</span>
               </button>
             </Link>
           </div>
         </section>
-      </div>
+      </main>
     </div>
   );
 }
 
-function StatCard({
+function BigStatCard({
   label,
   value,
   sublabel,
   icon,
-  bg,
   loading,
+  danger,
 }: {
   label: string;
   value: string;
-  sublabel?: string;
+  sublabel: string;
   icon: React.ReactNode;
-  bg: string;
   loading?: boolean;
+  danger?: boolean;
 }) {
   return (
-    <div className={`${bg} border border-border rounded-xl px-4 py-3 shadow-sm`}>
-      <div className="flex items-start justify-between mb-1">
-        <p className="text-[11px] text-muted-foreground leading-tight">{label}</p>
-        {icon}
+    <div
+      className={`rounded-xl border p-4 shadow-sm ${
+        danger
+          ? "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-100"
+          : "border-border bg-card"
+      }`}
+    >
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+        <span className={danger ? "text-amber-600" : "text-primary"}>{icon}</span>
       </div>
       {loading ? (
-        <div className="h-7 bg-muted rounded animate-pulse w-16 mt-1" />
+        <div className="h-9 w-16 animate-pulse rounded-lg bg-muted" />
       ) : (
-        <p className="text-2xl font-bold leading-tight">{value}</p>
+        <p className="text-4xl font-black leading-none tabular-nums">{value}</p>
       )}
-      {sublabel && (
-        <p className="text-[11px] text-muted-foreground mt-0.5">{sublabel}</p>
-      )}
+      <p className="mt-1 text-xs text-muted-foreground">{sublabel}</p>
     </div>
   );
 }
