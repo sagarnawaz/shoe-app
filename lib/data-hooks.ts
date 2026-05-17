@@ -481,32 +481,48 @@ export async function exportStockCsv() {
     .from('stock_items')
     .select('*')
     .eq('user_id', ownerId())
+    .order('brand')
     .order('model_code')
   throwIfError(error)
   const rows = (data ?? []).map(toStockItem)
+  const stockRows = rows.flatMap(item =>
+    item.sizes.map(sizeEntry => {
+      const soldPairs = sizeEntry.soldQuantity ?? 0
+      const currentStock = sizeEntry.quantity
+      const totalPairs = currentStock + soldPairs
+      const stockValue = currentStock * item.purchasePrice
+      const status =
+        currentStock === 0 ? 'Finished' : currentStock <= 3 ? 'Low Stock' : 'In Stock'
+
+      return [
+        item.brand ?? '',
+        item.modelCode,
+        sizeEntry.size,
+        currentStock,
+        soldPairs,
+        totalPairs,
+        item.purchasePrice.toFixed(2),
+        stockValue.toFixed(2),
+        status,
+        item.updatedAt,
+      ]
+    }),
+  )
+
   return toCsv(
     [
+      'Brand Name',
       'Model Code',
-      'Name',
       'Size',
-      'Quantity',
+      'Current Stock',
+      'Sold Pairs',
+      'Total Pairs',
       'Purchase Price (PKR)',
-      'Sale Price (PKR)',
-      'Sold Count',
-      'Notes',
-      'Created At',
+      'Current Stock Value (PKR)',
+      'Status',
+      'Last Updated',
     ],
-    rows.map(r => [
-      r.modelCode,
-      r.name ?? '',
-      r.size,
-      r.quantity,
-      r.purchasePrice.toFixed(2),
-      r.salePrice.toFixed(2),
-      r.soldCount,
-      r.notes ?? '',
-      r.createdAt,
-    ]),
+    stockRows,
   )
 }
 

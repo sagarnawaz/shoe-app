@@ -86,9 +86,9 @@ export default function Page() {
           </div>
         ) : (
           <div className="space-y-4">
-            <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <section className="rounded-xl border border-blue-200 bg-blue-50 p-5 shadow-sm dark:border-blue-800 dark:bg-blue-950/20">
               <p className="text-sm text-muted-foreground">Model Code / ماڈل کوڈ</p>
-              <h2 className="text-2xl font-bold">{item.modelCode}</h2>
+              <h2 className="text-2xl font-bold text-blue-700 dark:text-blue-300">{item.modelCode}</h2>
               <div className="mt-4 grid gap-2 text-sm">
                 <p>
                   <span className="font-semibold">Brand / برانڈ: </span>
@@ -99,21 +99,42 @@ export default function Page() {
 
             <section className="rounded-xl border-2 border-primary/30 bg-primary/10 p-5">
               <p className="text-sm text-muted-foreground">Total Stock / کل اسٹاک</p>
-              <p className="text-3xl font-bold">{item.quantity} pairs / {item.quantity} جوڑے</p>
+              <p className="text-3xl font-bold text-primary">{item.quantity} pairs / {item.quantity} جوڑے</p>
             </section>
 
             <section className="rounded-xl border border-border bg-card p-5">
               <h3 className="mb-3 text-base font-bold">Size Breakdown / سائز کی تفصیل</h3>
               <div className="space-y-2">
-                {item.sizes.map((entry) => (
-                  <div
-                    key={entry.size}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted px-4 py-3"
-                  >
-                    <p className="font-semibold">Size {entry.size} / سائز {entry.size}</p>
-                    <p className="text-sm text-muted-foreground">{entry.quantity} pairs / {entry.quantity} جوڑے</p>
-                  </div>
-                ))}
+                {item.sizes.map((entry) => {
+                  const tone =
+                    entry.quantity === 0
+                      ? "border-red-100 bg-red-50/80 dark:border-red-900/50 dark:bg-red-950/20"
+                      : entry.quantity <= 3
+                        ? "border-amber-100 bg-amber-50/80 dark:border-amber-900/50 dark:bg-amber-950/20"
+                        : "border-emerald-100 bg-emerald-50/80 dark:border-emerald-900/50 dark:bg-emerald-950/20";
+                  const qtyTone =
+                    entry.quantity === 0
+                      ? "text-red-600"
+                      : entry.quantity <= 3
+                        ? "text-amber-600"
+                        : "text-emerald-600";
+
+                  return (
+                    <div
+                      key={entry.size}
+                      className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${tone}`}
+                    >
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground">Size / سائزز</p>
+                        <p className="text-2xl font-black tabular-nums">{entry.size}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-2xl font-black tabular-nums ${qtyTone}`}>{entry.quantity}</p>
+                        <p className="text-xs text-muted-foreground">pairs / جوڑے</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </section>
 

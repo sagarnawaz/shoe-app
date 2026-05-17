@@ -31,6 +31,16 @@ import {
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const DEFAULT_BRANDS = ["BATA", "SERVIS", "NIKE", "ADIDAS", "NDURE", "METRO"];
 const STANDARD_SIZES = ["39", "40", "41", "42", "43", "44", "45"];
@@ -109,6 +119,9 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
   const [customSize, setCustomSize] = useState("");
   const [sizeQuantity, setSizeQuantity] = useState("0");
   const [sizes, setSizes] = useState<SizeEntry[]>([]);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const initialSizesRef = useRef("[]");
+  const allowNavigationRef = useRef(false);
 
   const isOtherBrand = selectedBrand === OTHER_BRAND;
   const isCustomModel = selectedChip === CUSTOM_MARKER;
@@ -117,6 +130,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
     () => sizes.reduce((sum, item) => sum + item.quantity, 0),
     [sizes],
   );
+  const sizesSnapshot = useMemo(() => JSON.stringify(sizes), [sizes]);
 
   const { data: modelCodes = [] } = useListModelCodes({
     query: { queryKey: getListModelCodesQueryKey() },
@@ -150,6 +164,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
 
   const createItem = useCreateStockItem();
   const updateItem = useUpdateStockItem();
+  const isPending = createItem.isPending || updateItem.isPending;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -167,7 +182,10 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
 
       setSelectedChip(chipMatch ? existing.modelCode : CUSTOM_MARKER);
       setSelectedBrand(brandMatch ? existing.brand! : OTHER_BRAND);
-      setSizes(existing.sizes.length ? existing.sizes : [{ size: existing.size, quantity: existing.quantity }]);
+      const loadedSizes = existing.sizes.length ? existing.sizes : [{ size: existing.size, quantity: existing.quantity }];
+
+      setSizes(loadedSizes);
+      initialSizesRef.current = JSON.stringify(loadedSizes);
 
       form.reset({
         brand: existing.brand ?? "",
@@ -176,6 +194,44 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
       });
     }
   }, [existing, modelCodes, form]);
+
+  const hasUnsavedChanges = form.formState.isDirty || sizesSnapshot !== initialSizesRef.current;
+
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (!hasUnsavedChanges || allowNavigationRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    function handleDocumentClick(event: MouseEvent) {
+      if (!hasUnsavedChanges || allowNavigationRef.current || isPending) return;
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+      const target = event.target instanceof Element ? event.target : null;
+      const anchor = target?.closest("a[href]");
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      if (anchor.target && anchor.target !== "_self") return;
+
+      const url = new URL(anchor.href);
+      if (url.origin !== window.location.origin) return;
+
+      const href = `${url.pathname}${url.search}${url.hash}`;
+      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (href === current) return;
+
+      event.preventDefault();
+      setPendingHref(href);
+    }
+
+    document.addEventListener("click", handleDocumentClick, true);
+    return () => document.removeEventListener("click", handleDocumentClick, true);
+  }, [hasUnsavedChanges, isPending]);
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: getListStockQueryKey() });
@@ -209,16 +265,37 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
       toast({ title: "Quantity must be greater than 0 / تعداد 0 سے زیادہ ہونی چاہیے", variant: "destructive" });
       return;
     }
-    if (sizes.some((item) => item.size === size)) {
-      toast({ title: "This size is already added / یہ سائز پہلے سے شامل ہے", variant: "destructive" });
-      return;
-    }
+    const sizeExists = sizes.some((item) => item.size === size);
 
-    setSizes((current) => [...current, { size, quantity }].sort((a, b) => Number(a.size) - Number(b.size)));
+    setSizes((current) =>
+      (sizeExists
+        ? current.map((item) =>
+            item.size === size ? { ...item, quantity: item.quantity + quantity } : item,
+          )
+        : [...current, { size, quantity }]
+      ).sort((a, b) => Number(a.size) - Number(b.size)),
+    );
+    if (sizeExists) {
+      toast({ title: "Quantity updated / تعداد اپ ڈیٹ ہو گئی" });
+    }
     clearSizeInput();
   }
 
-  function onSubmit(values: FormValues) {
+  function continueNavigation(href: string) {
+    allowNavigationRef.current = true;
+    router.push(href);
+  }
+
+  function requestNavigation(href: string) {
+    if (hasUnsavedChanges && !allowNavigationRef.current) {
+      setPendingHref(href);
+      return;
+    }
+
+    continueNavigation(href);
+  }
+
+  function onSubmit(values: FormValues, targetHref = "/stock") {
     if (sizes.length === 0) {
       toast({ title: "Add at least one size / کم از کم ایک سائز شامل کریں", variant: "destructive" });
       return;
@@ -244,7 +321,8 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
             onSuccess: () => {
               toast({ title: "Saved / محفوظ ہو گیا", description: "Shoe added to stock / جوتا اسٹاک میں شامل ہو گیا" });
               invalidate();
-              router.push("/stock");
+              initialSizesRef.current = JSON.stringify(sizes);
+              continueNavigation(targetHref);
             },
             onError: () => toast({ title: "Error / خرابی", description: "Item could not be saved / آئٹم محفوظ نہیں ہو سکا", variant: "destructive" }),
           },
@@ -256,7 +334,8 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
             onSuccess: () => {
               toast({ title: "Saved / محفوظ ہو گیا", description: "Shoe updated / جوتا اپ ڈیٹ ہو گیا" });
               invalidate();
-              router.push("/stock");
+              initialSizesRef.current = JSON.stringify(sizes);
+              continueNavigation(targetHref);
             },
             onError: () => toast({ title: "Error / خرابی", description: "Item could not be saved / آئٹم محفوظ نہیں ہو سکا", variant: "destructive" }),
           },
@@ -280,14 +359,12 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
     }
   }
 
-  const isPending = createItem.isPending || updateItem.isPending;
-
   return (
     <div className="pb-nav">
       <header className="sticky top-0 z-40 bg-card border-b border-border px-4 py-3 flex items-center gap-3">
         <button
           type="button"
-          onClick={() => router.push("/stock")}
+          onClick={() => requestNavigation("/stock")}
           className="p-3 rounded-xl active:bg-muted transition-colors"
           data-testid="button-back"
         >
@@ -300,7 +377,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
 
       <div className="px-4 py-4">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <form onSubmit={form.handleSubmit((values) => onSubmit(values))} className="space-y-5">
             <section className="space-y-4 rounded-xl border border-border bg-card p-4">
               <h2 className="text-base font-bold">Article Information / آرٹیکل معلومات</h2>
 
@@ -605,6 +682,43 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
           </form>
         </Form>
       </div>
+
+      <AlertDialog open={Boolean(pendingHref)} onOpenChange={(open) => !open && setPendingHref(null)}>
+        <AlertDialogContent className="w-[calc(100%-2rem)] rounded-2xl">
+          <AlertDialogHeader className="text-left">
+            <AlertDialogTitle>Unsaved changes / تبدیلیاں محفوظ نہیں ہوئیں</AlertDialogTitle>
+            <AlertDialogDescription>
+              Aap ne changes ki hain. Save karke jana hai ya changes hata kar move karna hai?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:space-x-0">
+            <AlertDialogCancel className="h-12" onClick={() => setPendingHref(null)}>
+              Stay / رکیں
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="h-12 border border-border bg-card text-foreground hover:bg-muted"
+              onClick={() => {
+                const href = pendingHref ?? "/stock";
+                setPendingHref(null);
+                continueNavigation(href);
+              }}
+            >
+              Discard / چھوڑ دیں
+            </AlertDialogAction>
+            <Button
+              type="button"
+              disabled={isPending}
+              className="h-12"
+              onClick={() => {
+                const href = pendingHref ?? "/stock";
+                void form.handleSubmit((values) => onSubmit(values, href))();
+              }}
+            >
+              {isPending ? "Saving..." : "Save & Move / محفوظ کریں"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

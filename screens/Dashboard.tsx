@@ -62,6 +62,7 @@ export default function Dashboard() {
             value={String(stats.totalPairs)}
             sublabel="pairs / جوڑے"
             icon={<Package size={19} />}
+            tone="blue"
           />
           <BigStatCard
             loading={isLoading}
@@ -69,6 +70,7 @@ export default function Dashboard() {
             value={String(stats.articleCount)}
             sublabel="items / آئٹمز"
             icon={<Boxes size={19} />}
+            tone="slate"
           />
           <BigStatCard
             loading={isLoading}
@@ -76,6 +78,7 @@ export default function Dashboard() {
             value={String(stats.soldPairs)}
             sublabel="pairs / جوڑے"
             icon={<ShoppingBag size={19} />}
+            tone="green"
           />
           <BigStatCard
             loading={isLoading}
@@ -83,7 +86,7 @@ export default function Dashboard() {
             value={String(stats.lowSizes.length)}
             sublabel="sizes / سائز"
             icon={<AlertTriangle size={19} />}
-            danger={stats.lowSizes.length > 0}
+            tone={stats.finishedSizes.length > 0 ? "red" : stats.lowSizes.length > 0 ? "amber" : "slate"}
           />
         </section>
 
@@ -103,9 +106,18 @@ export default function Dashboard() {
             </div>
 
             <div className="max-h-80 space-y-2 overflow-y-auto overscroll-contain pr-1">
-              {[...stats.finishedSizes, ...stats.lowSizes].map(({ item, entry }) => (
+              {[...stats.finishedSizes, ...stats.lowSizes].map(({ item, entry }) => {
+                const finished = entry.quantity === 0;
+
+                return (
                 <Link key={`${item.id}-${entry.size}`} href={`/stock/${item.id}`}>
-                  <div className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl bg-muted px-3 py-2 active:bg-muted/70">
+                  <div
+                    className={`grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border px-3 py-2 active:bg-muted/70 ${
+                      finished
+                        ? "border-red-100 bg-red-50/80 dark:border-red-900/50 dark:bg-red-950/20"
+                        : "border-amber-100 bg-amber-50/80 dark:border-amber-900/50 dark:bg-amber-950/20"
+                    }`}
+                  >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold">{item.brand || item.modelCode}</p>
                       <p className="text-xs text-muted-foreground">
@@ -120,7 +132,8 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           </section>
         )}
@@ -167,31 +180,53 @@ function BigStatCard({
   sublabel,
   icon,
   loading,
-  danger,
+  tone,
 }: {
   label: string;
   value: string;
   sublabel: string;
   icon: React.ReactNode;
   loading?: boolean;
-  danger?: boolean;
+  tone: "blue" | "slate" | "green" | "amber" | "red";
 }) {
+  const tones = {
+    blue: {
+      card: "border-blue-200 bg-blue-50 text-blue-950 dark:border-blue-800 dark:bg-blue-950/20 dark:text-blue-100",
+      icon: "text-blue-600",
+      value: "text-blue-700 dark:text-blue-300",
+    },
+    slate: {
+      card: "border-border bg-card",
+      icon: "text-primary",
+      value: "text-foreground",
+    },
+    green: {
+      card: "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-100",
+      icon: "text-emerald-600",
+      value: "text-emerald-700 dark:text-emerald-300",
+    },
+    amber: {
+      card: "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-100",
+      icon: "text-amber-600",
+      value: "text-amber-700 dark:text-amber-300",
+    },
+    red: {
+      card: "border-red-200 bg-red-50 text-red-950 dark:border-red-800 dark:bg-red-950/20 dark:text-red-100",
+      icon: "text-red-600",
+      value: "text-red-700 dark:text-red-300",
+    },
+  }[tone];
+
   return (
-    <div
-      className={`rounded-xl border p-4 shadow-sm ${
-        danger
-          ? "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-100"
-          : "border-border bg-card"
-      }`}
-    >
+    <div className={`rounded-xl border p-4 shadow-sm ${tones.card}`}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-        <span className={danger ? "text-amber-600" : "text-primary"}>{icon}</span>
+        <span className={tones.icon}>{icon}</span>
       </div>
       {loading ? (
         <div className="h-9 w-16 animate-pulse rounded-lg bg-muted" />
       ) : (
-        <p className="text-4xl font-black leading-none tabular-nums">{value}</p>
+        <p className={`text-4xl font-black leading-none tabular-nums ${tones.value}`}>{value}</p>
       )}
       <p className="mt-1 text-xs text-muted-foreground">{sublabel}</p>
     </div>

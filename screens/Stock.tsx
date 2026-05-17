@@ -253,14 +253,14 @@ export default function Stock() {
         </div>
       </header>
 
-      <div className="px-4 py-3 space-y-3">
+      <div className="space-y-3 px-4 py-3 md:grid md:grid-cols-[repeat(auto-fit,minmax(320px,1fr))] md:items-start md:gap-4 md:space-y-0 md:px-6 lg:px-8">
         {isLoading &&
           Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="h-40 rounded-xl bg-card animate-pulse" />
           ))}
 
         {!isLoading && items?.length === 0 && (
-          <div className="text-center py-16 text-muted-foreground">
+          <div className="py-16 text-center text-muted-foreground md:col-span-full">
             <Package size={44} className="mx-auto mb-3 opacity-30" />
             <p className="font-semibold text-base">No stock found / کوئی اسٹاک نہیں</p>
             {!search && (
@@ -280,7 +280,7 @@ export default function Stock() {
           return (
             <article
               key={item.id}
-              className="rounded-xl border border-border bg-card p-4 shadow-sm"
+              className="rounded-xl border border-border bg-card p-4 shadow-sm md:flex md:h-full md:min-h-[344px] md:flex-col"
               data-testid={`stock-card-${item.id}`}
             >
               <div className="grid grid-cols-[auto_1fr] gap-4">
@@ -301,7 +301,7 @@ export default function Stock() {
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <div className="mt-4 flex flex-wrap justify-end gap-2 md:min-h-[72px] md:content-start">
                 {item.sizes.map((entry) => (
                   <button
                     key={entry.size}
@@ -319,10 +319,10 @@ export default function Stock() {
                 ))}
               </div>
 
-              <div className="mt-4 grid grid-cols-2 items-end gap-3">
+              <div className="mt-4 grid grid-cols-2 items-end gap-3 md:mt-auto">
                 <div className="space-y-1 text-sm">
                   <p className="text-muted-foreground">
-                    Purchase / خرید: <span className="font-bold text-foreground">{formatPKR(item.purchasePrice)}</span>
+                    خرید: <span className="font-bold text-foreground">{formatPKR(item.purchasePrice)}</span>
                   </p>
                   <p className="text-muted-foreground">
                     Sold / فروخت: <span className="font-bold text-emerald-600">{item.soldCount} pairs</span>
@@ -408,29 +408,44 @@ export default function Stock() {
               <div>
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <p className="text-base font-semibold">Sell Quantities / فروخت تعداد</p>
-                  <p className="text-xs text-muted-foreground">Total: {totalSellQty}</p>
+                  <p className={`rounded-full px-2 py-1 text-xs font-bold ${totalSellQty > 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                    Total: {totalSellQty}
+                  </p>
                 </div>
                 <div className="space-y-2">
                   {sellItem.sizes.map((entry) => {
                     const quantity = Number(sellQuantities[entry.size]) || 0;
                     const disabled = entry.quantity === 0;
+                    const selected = quantity > 0;
+                    const stockTone =
+                      entry.quantity === 0
+                        ? "bg-red-50 text-red-700 border-red-200"
+                        : entry.quantity <= 3
+                          ? "bg-amber-50 text-amber-700 border-amber-200"
+                          : "bg-emerald-50 text-emerald-700 border-emerald-200";
 
                     return (
                       <div
                         key={entry.size}
-                        className={`rounded-xl border border-border bg-card p-3 ${disabled ? "opacity-50" : ""}`}
+                        className={`rounded-xl border p-3 transition-colors ${
+                          selected
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : disabled
+                              ? "border-border bg-muted/60 opacity-70"
+                              : "border-border bg-card"
+                        }`}
                       >
                         <div className="mb-2 flex items-center justify-between gap-3">
                           <div>
                             <p className="text-xs text-muted-foreground">Size / سائز</p>
-                            <p className="text-2xl font-black tabular-nums">{entry.size}</p>
+                            <p className={`text-2xl font-black tabular-nums ${selected ? "text-primary" : "text-foreground"}`}>{entry.size}</p>
                           </div>
-                          <p className="text-right text-xs text-muted-foreground">
-                            Available
-                            <span className="block text-base font-bold text-foreground tabular-nums">{entry.quantity}</span>
-                          </p>
+                          <div className={`rounded-xl border px-3 py-1.5 text-right ${stockTone}`}>
+                            <p className="text-[10px] font-semibold uppercase leading-none tracking-normal">Available</p>
+                            <p className="text-xl font-black leading-tight tabular-nums">{entry.quantity}</p>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 rounded-xl bg-muted p-2">
+                        <div className={`flex items-center gap-2 rounded-xl p-2 ${selected ? "bg-primary/10" : "bg-muted"}`}>
                           <HoldButton
                             label={`Decrease size ${entry.size} quantity / تعداد کم کریں`}
                             onStep={() => changeSellQty(entry.size, -1, entry.quantity)}
@@ -454,7 +469,9 @@ export default function Stock() {
                               setSellQuantity(entry.size, value, entry.quantity);
                             }}
                             onFocus={(event) => event.target.select()}
-                            className="h-14 border-0 bg-background text-center text-3xl font-bold tabular-nums focus-visible:ring-2"
+                            className={`h-14 border-0 text-center text-3xl font-bold tabular-nums focus-visible:ring-2 ${
+                              selected ? "bg-background text-primary ring-1 ring-primary/30" : "bg-background"
+                            }`}
                             data-testid={`sell-qty-${entry.size}`}
                           />
                           <HoldButton
@@ -472,7 +489,12 @@ export default function Stock() {
               </div>
             </div>
           )}
-          <DialogFooter className="grid shrink-0 grid-cols-1 gap-2 border-t border-border px-5 py-4 min-[420px]:grid-cols-2 sm:space-x-0">
+          <div className="shrink-0 border-t border-border px-5 py-4">
+            <div className="mb-3 flex items-center justify-between rounded-xl bg-muted px-3 py-2">
+              <span className="text-sm font-semibold text-muted-foreground">Total Sell</span>
+              <span className="text-xl font-black text-primary tabular-nums">{totalSellQty}</span>
+            </div>
+          <DialogFooter className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:space-x-0">
             <Button variant="outline" onClick={() => setSellItem(null)} className="h-auto min-h-12 min-w-0 px-2 text-sm">
               <span className="flex min-w-0 flex-col items-center justify-center leading-tight">
                 <span>Cancel</span>
@@ -495,6 +517,7 @@ export default function Stock() {
               )}
             </Button>
           </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
