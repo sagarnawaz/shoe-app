@@ -65,6 +65,7 @@ end $$;
 alter table public.stock_items alter column user_id drop not null;
 alter table public.stock_items alter column user_id drop default;
 alter table public.stock_items add column if not exists brand text;
+alter table public.stock_items add column if not exists sole_type text;
 alter table public.stock_items add column if not exists sizes jsonb not null default '[]'::jsonb;
 update public.stock_items
 set sizes = jsonb_build_array(jsonb_build_object('size', size, 'quantity', quantity))

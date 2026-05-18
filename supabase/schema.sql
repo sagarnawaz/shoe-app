@@ -52,6 +52,7 @@ create table if not exists public.stock_items (
   user_id uuid references public.app_users(id) on delete cascade,
   brand text,
   model_code text not null,
+  sole_type text,
   name text,
   size text not null,
   sizes jsonb not null default '[]'::jsonb,

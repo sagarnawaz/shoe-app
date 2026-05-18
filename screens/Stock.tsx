@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   getGetDashboardSummaryQueryKey,
@@ -13,7 +13,7 @@ import {
 import type { StockItem } from "@/lib/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { formatPKR } from "@/lib/format";
+import { formatPKR, formatSoleType } from "@/lib/format";
 import { Eye, Minus, Package, Pencil, Plus, Search, ShoppingBag, Trash2, X } from "lucide-react";
 import {
   AlertDialog,
@@ -45,6 +45,41 @@ type HoldButtonProps = {
 
 function digitsOnly(value: string) {
   return value.replace(/\D/g, "");
+}
+
+function normalizeSearch(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[\s\-_./\\]+/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function soleSearchAliases(soleType?: string | null) {
+  if (!soleType) return [];
+
+  const aliases: Record<string, string[]> = {
+    Pandar: ["Pandar", "Pander", "Pandaar", "پنڈار", "پندار", "پنڈار سول"],
+    Mix: ["Mix", "Miks", "Mix Sole", "مکس", "مکس سول"],
+    CM: ["CM", "C M", "سی ایم"],
+    Walker: ["Walker", "Walkar", "واکر"],
+  };
+
+  return [soleType, formatSoleType(soleType), ...(aliases[soleType] ?? [])];
+}
+
+function matchesStockSearch(item: StockItem, search: string) {
+  const terms = search.split(/\s+/).map(normalizeSearch).filter(Boolean);
+
+  if (terms.length === 0) return true;
+
+  const searchableValues = [
+    item.brand ?? "",
+    item.modelCode,
+    ...soleSearchAliases(item.soleType),
+  ].map(normalizeSearch);
+  const combined = searchableValues.join("");
+
+  return terms.every((term) => combined.includes(term) || searchableValues.some((value) => value.includes(term)));
 }
 
 function HoldButton({ label, onStep, disabled, children }: HoldButtonProps) {
@@ -88,9 +123,13 @@ export default function Stock() {
   const [sellItem, setSellItem] = useState<SellItem | null>(null);
   const [sellQuantities, setSellQuantities] = useState<Record<string, string>>({});
 
-  const { data: items, isLoading } = useListStock(
-    search ? { search } : {},
-    { query: { queryKey: getListStockQueryKey(search ? { search } : {}) } },
+  const { data: items = [], isLoading } = useListStock(
+    {},
+    { query: { queryKey: getListStockQueryKey() } },
+  );
+  const filteredItems = useMemo(
+    () => items.filter((item) => matchesStockSearch(item, search)),
+    [items, search],
   );
   const deleteItem = useDeleteStockItem();
   const updateItem = useUpdateStockItem();
@@ -227,7 +266,7 @@ export default function Stock() {
           </Link>
           <div className="text-right">
             <h1 className="text-xl font-bold">Stock / اسٹاک</h1>
-            <p className="text-xs text-muted-foreground">{items?.length ?? 0} items / آئٹمز</p>
+            <p className="text-xs text-muted-foreground">{filteredItems.length} items / آئٹمز</p>
           </div>
         </div>
 
@@ -235,7 +274,7 @@ export default function Stock() {
           <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
-            placeholder="Brand ya model talash karein..."
+            placeholder="BATA, B1, Walker ya واکر..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="w-full rounded-xl border border-border bg-card py-3 pl-9 pr-10 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
@@ -259,7 +298,7 @@ export default function Stock() {
             <div key={index} className="h-40 rounded-xl bg-card animate-pulse" />
           ))}
 
-        {!isLoading && items?.length === 0 && (
+        {!isLoading && filteredItems.length === 0 && (
           <div className="py-16 text-center text-muted-foreground md:col-span-full">
             <Package size={44} className="mx-auto mb-3 opacity-30" />
             <p className="font-semibold text-base">No stock found / کوئی اسٹاک نہیں</p>
@@ -274,7 +313,7 @@ export default function Stock() {
           </div>
         )}
 
-        {items?.map((item) => {
+        {filteredItems.map((item) => {
           const hasStock = item.quantity > 0;
 
           return (
@@ -298,6 +337,11 @@ export default function Stock() {
                     </h2>
                   </Link>
                   <p className="text-xs font-medium text-muted-foreground">{item.modelCode}</p>
+                  {item.soleType && (
+                    <p className="mt-1 text-xs font-medium text-muted-foreground">
+                      <span className="text-foreground">{formatSoleType(item.soleType)}</span>
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -403,6 +447,11 @@ export default function Stock() {
                 <p className="text-sm text-muted-foreground">Article / آرٹیکل</p>
                 <p className="text-xl font-bold">{sellItem.brand || sellItem.modelCode}</p>
                 <p className="text-sm text-muted-foreground">{sellItem.modelCode}</p>
+                {sellItem.soleType && (
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {formatSoleType(sellItem.soleType)}
+                  </p>
+                )}
               </div>
 
               <div>

@@ -57,6 +57,7 @@ export default function Dashboard() {
       <main className="-mt-4 space-y-4 px-4 pb-28">
         <section className="grid grid-cols-2 gap-3">
           <BigStatCard
+            href="/stock"
             loading={isLoading}
             label="Total Stock / کل اسٹاک"
             value={String(stats.totalPairs)}
@@ -65,6 +66,7 @@ export default function Dashboard() {
             tone="blue"
           />
           <BigStatCard
+            href="/stock"
             loading={isLoading}
             label="Articles / آرٹیکل"
             value={String(stats.articleCount)}
@@ -73,6 +75,7 @@ export default function Dashboard() {
             tone="slate"
           />
           <BigStatCard
+            href="/stock"
             loading={isLoading}
             label="Sold / فروخت"
             value={String(stats.soldPairs)}
@@ -81,6 +84,7 @@ export default function Dashboard() {
             tone="green"
           />
           <BigStatCard
+            href="/stock"
             loading={isLoading}
             label="Low Stock / کم اسٹاک"
             value={String(stats.lowSizes.length)}
@@ -175,6 +179,7 @@ export default function Dashboard() {
 }
 
 function BigStatCard({
+  href,
   label,
   value,
   sublabel,
@@ -182,6 +187,7 @@ function BigStatCard({
   loading,
   tone,
 }: {
+  href: string;
   label: string;
   value: string;
   sublabel: string;
@@ -218,7 +224,11 @@ function BigStatCard({
   }[tone];
 
   return (
-    <div className={`rounded-xl border p-4 shadow-sm ${tones.card}`}>
+    <Link
+      href={href}
+      className={`block rounded-xl border p-4 shadow-sm transition active:scale-[0.99] active:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${tones.card}`}
+      aria-label={`${label} - ${value} ${sublabel}`}
+    >
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-xs font-semibold text-muted-foreground">{label}</p>
         <span className={tones.icon}>{icon}</span>
@@ -229,6 +239,6 @@ function BigStatCard({
         <p className={`text-4xl font-black leading-none tabular-nums ${tones.value}`}>{value}</p>
       )}
       <p className="mt-1 text-xs text-muted-foreground">{sublabel}</p>
-    </div>
+    </Link>
   );
 }

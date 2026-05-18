@@ -2,6 +2,7 @@ export interface StockItem {
   id: string;
   brand: string | null;
   modelCode: string;
+  soleType: string | null;
   name: string | null;
   size: string;
   sizes: Array<{ size: string; quantity: number; soldQuantity?: number }>;
@@ -69,6 +70,7 @@ export interface SyncStatus {
 export interface StockInput {
   brand?: string;
   modelCode: string;
+  soleType?: string;
   name?: string;
   size?: string;
   quantity?: number;

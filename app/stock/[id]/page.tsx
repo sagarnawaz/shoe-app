@@ -24,7 +24,7 @@ import {
   useDeleteStockItem,
   useGetStockItem,
 } from "@/lib/data-hooks";
-import { formatPKR } from "@/lib/format";
+import { formatPKR, formatSoleType } from "@/lib/format";
 
 export default function Page() {
   const params = useParams<{ id?: string }>();
@@ -93,6 +93,10 @@ export default function Page() {
                 <p>
                   <span className="font-semibold">Brand / برانڈ: </span>
                   {item.brand || "-"}
+                </p>
+                <p>
+                  <span className="font-semibold">Sole Type / سول ٹائپ: </span>
+                  {formatSoleType(item.soleType)}
                 </p>
               </div>
             </section>

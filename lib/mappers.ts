@@ -40,6 +40,7 @@ export function toStockItem(row: Record<string, unknown>): StockItem {
     id: String(row.id),
     brand: row.brand == null ? null : String(row.brand),
     modelCode: String(row.model_code),
+    soleType: row.sole_type == null ? null : String(row.sole_type),
     name: row.name == null ? null : String(row.name),
     size: row.size == null ? (sizes[0]?.size ?? '') : String(row.size),
     sizes,
@@ -88,6 +89,7 @@ export function toExpenseCategory(row: Record<string, unknown>): ExpenseCategory
 export function stockInputToRow(input: {
   brand?: string
   modelCode?: string
+  soleType?: string
   name?: string
   sizes?: Array<{ size: string; quantity: number; soldQuantity?: number }>
   purchasePrice?: number
@@ -107,6 +109,7 @@ export function stockInputToRow(input: {
   return stripUndefined({
     brand: input.brand,
     model_code: input.modelCode,
+    sole_type: input.soleType,
     name: input.name === undefined ? undefined : input.name || null,
     sizes,
     size: input.size ?? sizes?.[0]?.size ?? 'multiple',

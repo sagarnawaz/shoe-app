@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ import {
   useDeleteModelCode,
   useGetStockItem,
   useListModelCodes,
+  useListStock,
   useUpdateStockItem,
 } from "@/lib/data-hooks";
 import { useToast } from "@/hooks/use-toast";
@@ -43,8 +44,15 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const DEFAULT_BRANDS = ["BATA", "SERVIS", "NIKE", "ADIDAS", "NDURE", "METRO"];
+const SOLE_TYPES = [
+  { value: "Pandar", label: "پنڈار سول / Pandar" },
+  { value: "Mix", label: "مکس سول / Mix" },
+  { value: "CM", label: "سی ایم / CM" },
+  { value: "Walker", label: "واکر / Walker" },
+];
 const STANDARD_SIZES = ["39", "40", "41", "42", "43", "44", "45"];
 const CUSTOM_MARKER = "__custom__";
+const OTHER_SOLE_TYPE = "Other";
 const OTHER_SIZE = "Other";
 const OTHER_BRAND = "Other";
 
@@ -58,6 +66,10 @@ type HoldButtonProps = {
 
 function digitsOnly(value: string) {
   return value.replace(/\D/g, "");
+}
+
+function normalizeLabel(value: string | null | undefined) {
+  return (value ?? "").trim().toUpperCase();
 }
 
 function HoldButton({ label, onStep, disabled, children }: HoldButtonProps) {
@@ -98,6 +110,7 @@ function HoldButton({ label, onStep, disabled, children }: HoldButtonProps) {
 const schema = z.object({
   brand: z.string().min(1, "Brand required / برانڈ ضروری ہے"),
   modelCode: z.string().min(1, "Model code required / ماڈل کوڈ ضروری ہے"),
+  soleType: z.string().trim().min(1, "Sole type required / سول ٹائپ ضروری ہے"),
   purchasePrice: z.preprocess(
     (value) => (value === "" || value == null ? 0 : value),
     z.coerce.number().min(0, "0 یا زیادہ ہونا چاہیے"),
@@ -113,8 +126,20 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [selectedBrand, setSelectedBrand] = useState("");
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      brand: DEFAULT_BRANDS[0],
+      modelCode: "",
+      soleType: "",
+      purchasePrice: "" as unknown as number,
+    },
+  });
+  const watchedBrand = useWatch({ control: form.control, name: "brand" });
+
+  const [selectedBrand, setSelectedBrand] = useState(DEFAULT_BRANDS[0]);
   const [selectedChip, setSelectedChip] = useState("");
+  const [selectedSoleType, setSelectedSoleType] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
   const [customSize, setCustomSize] = useState("");
   const [sizeQuantity, setSizeQuantity] = useState("0");
@@ -125,7 +150,11 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
 
   const isOtherBrand = selectedBrand === OTHER_BRAND;
   const isCustomModel = selectedChip === CUSTOM_MARKER;
+  const isOtherSoleType = selectedSoleType === OTHER_SOLE_TYPE;
   const isOtherSize = selectedSize === OTHER_SIZE;
+  const pendingSize = (isOtherSize ? customSize : selectedSize).trim();
+  const pendingQuantity = Number(sizeQuantity);
+  const canAddSize = Boolean(pendingSize) && Number.isInteger(pendingQuantity) && pendingQuantity > 0;
   const totalStock = useMemo(
     () => sizes.reduce((sum, item) => sum + item.quantity, 0),
     [sizes],
@@ -135,6 +164,10 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
   const { data: modelCodes = [] } = useListModelCodes({
     query: { queryKey: getListModelCodesQueryKey() },
   });
+  const { data: stockItems = [] } = useListStock(
+    {},
+    { query: { queryKey: getListStockQueryKey() } },
+  );
   const createModelCode = useCreateModelCode();
   const deleteModelCode = useDeleteModelCode();
   const { defaultCodes, customCodes } = useMemo(() => {
@@ -154,6 +187,37 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
 
     return { defaultCodes: uniqueDefaults, customCodes: uniqueCustom };
   }, [modelCodes]);
+  const brandOptions = useMemo(() => {
+    const seen = new Set<string>();
+
+    return [
+      ...DEFAULT_BRANDS,
+      ...stockItems.map((item) => normalizeLabel(item.brand)),
+    ].filter((brand) => {
+      if (!brand || seen.has(brand)) return false;
+      seen.add(brand);
+      return true;
+    });
+  }, [stockItems]);
+  const selectedBrandValue = normalizeLabel(isOtherBrand ? watchedBrand : selectedBrand);
+  const brandModelCodes = useMemo(() => {
+    const seen = new Set<string>();
+
+    if (!selectedBrandValue) return [];
+
+    return stockItems
+      .filter((item) => normalizeLabel(item.brand) === selectedBrandValue)
+      .map((item) => item.modelCode.trim().toUpperCase())
+      .filter((code) => {
+        if (!code || seen.has(code)) return false;
+        seen.add(code);
+        return true;
+      });
+  }, [selectedBrandValue, stockItems]);
+  const shownDefaultCodes = selectedBrandValue
+    ? brandModelCodes.map((code) => ({ id: `brand-${selectedBrandValue}-${code}`, code }))
+    : defaultCodes;
+  const shownCustomCodes = selectedBrandValue ? [] : customCodes;
 
   const { data: existing } = useGetStockItem(id ?? "", {
     query: {
@@ -166,34 +230,29 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
   const updateItem = useUpdateStockItem();
   const isPending = createItem.isPending || updateItem.isPending;
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      brand: "",
-      modelCode: "",
-      purchasePrice: "" as unknown as number,
-    },
-  });
-
   useEffect(() => {
     if (existing && modelCodes.length > 0) {
-      const chipMatch = modelCodes.find((m) => m.code === existing.modelCode);
-      const brandMatch = existing.brand && DEFAULT_BRANDS.includes(existing.brand);
+      const existingBrand = normalizeLabel(existing.brand);
+      const brandMatch = existingBrand && brandOptions.includes(existingBrand);
+      const existingSoleType = existing.soleType ?? "";
+      const soleTypeMatch = SOLE_TYPES.some((type) => type.value === existingSoleType);
 
-      setSelectedChip(chipMatch ? existing.modelCode : CUSTOM_MARKER);
-      setSelectedBrand(brandMatch ? existing.brand! : OTHER_BRAND);
+      setSelectedChip(existing.modelCode);
+      setSelectedBrand(brandMatch ? existingBrand : OTHER_BRAND);
+      setSelectedSoleType(soleTypeMatch ? existingSoleType : existingSoleType ? OTHER_SOLE_TYPE : "");
       const loadedSizes = existing.sizes.length ? existing.sizes : [{ size: existing.size, quantity: existing.quantity }];
 
       setSizes(loadedSizes);
       initialSizesRef.current = JSON.stringify(loadedSizes);
 
       form.reset({
-        brand: existing.brand ?? "",
+        brand: existingBrand,
         modelCode: existing.modelCode,
+        soleType: existingSoleType,
         purchasePrice: existing.purchasePrice,
       });
     }
-  }, [existing, modelCodes, form]);
+  }, [existing, modelCodes, brandOptions, form]);
 
   const hasUnsavedChanges = form.formState.isDirty || sizesSnapshot !== initialSizesRef.current;
 
@@ -306,6 +365,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
     const payload = {
       brand: values.brand.trim().toUpperCase(),
       modelCode,
+      soleType: values.soleType.trim(),
       name: undefined,
       sizes,
       purchasePrice: values.purchasePrice,
@@ -388,13 +448,15 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
                   <FormItem>
                     <FormLabel className="text-base font-semibold">Brand / برانڈ *</FormLabel>
                     <div className="flex flex-wrap gap-2">
-                      {[...DEFAULT_BRANDS, OTHER_BRAND].map((brand) => (
+                      {[...brandOptions, OTHER_BRAND].map((brand) => (
                         <button
                           key={brand}
                           type="button"
                           onClick={() => {
                             setSelectedBrand(brand);
+                            setSelectedChip("");
                             field.onChange(brand === OTHER_BRAND ? "" : brand);
+                            form.setValue("modelCode", "", { shouldDirty: true });
                           }}
                           className={`min-h-[48px] rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-colors ${
                             selectedBrand === brand
@@ -411,7 +473,11 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
                       <FormControl>
                         <Input
                           value={field.value}
-                          onChange={(event) => field.onChange(event.target.value)}
+                          onChange={(event) => {
+                            setSelectedChip("");
+                            form.setValue("modelCode", "", { shouldDirty: true });
+                            field.onChange(normalizeLabel(event.target.value));
+                          }}
                           placeholder="Enter brand / برانڈ لکھیں"
                           className="mt-2 h-14 text-base font-medium"
                           dir="auto"
@@ -432,7 +498,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
                   <FormItem>
                     <FormLabel className="text-base font-semibold">Model Code / ماڈل کوڈ *</FormLabel>
                     <div className="flex flex-wrap gap-2 mt-1">
-                      {defaultCodes.map((m) => (
+                      {shownDefaultCodes.map((m) => (
                         <button
                           key={m.id}
                           type="button"
@@ -450,7 +516,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
                           {m.code}
                         </button>
                       ))}
-                      {customCodes.map((m) => (
+                      {shownCustomCodes.map((m) => (
                         <div key={m.id} className="relative inline-flex">
                           <button
                             type="button"
@@ -516,6 +582,50 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
                           dir="auto"
                           autoFocus
                           data-testid="input-model-code-custom"
+                        />
+                      </FormControl>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="soleType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-base font-semibold">Sole Type / سول ٹائپ *</FormLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {[...SOLE_TYPES, { value: OTHER_SOLE_TYPE, label: "دیگر / Other" }].map((soleType) => (
+                        <button
+                          key={soleType.value}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSoleType(soleType.value);
+                            field.onChange(soleType.value === OTHER_SOLE_TYPE ? "" : soleType.value);
+                          }}
+                          className={`min-h-[48px] rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                            selectedSoleType === soleType.value
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-card text-foreground active:bg-muted"
+                          }`}
+                          data-testid={`chip-sole-type-${soleType.value.toLowerCase()}`}
+                        >
+                          {soleType.label}
+                        </button>
+                      ))}
+                    </div>
+                    {isOtherSoleType && (
+                      <FormControl>
+                        <Input
+                          value={field.value}
+                          onChange={(event) => field.onChange(event.target.value)}
+                          placeholder="Enter sole type / سول ٹائپ لکھیں"
+                          className="mt-2 h-14 text-base font-medium"
+                          dir="auto"
+                          autoFocus
+                          data-testid="input-sole-type-other"
                         />
                       </FormControl>
                     )}
@@ -627,7 +737,13 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
                 </div>
               </div>
 
-              <Button type="button" onClick={handleAddSize} className="h-14 w-full text-base font-bold" data-testid="button-add-size">
+              <Button
+                type="button"
+                onClick={handleAddSize}
+                disabled={!canAddSize}
+                className="h-14 w-full border border-emerald-700 bg-emerald-600 text-base font-bold text-white hover:bg-emerald-700 active:bg-emerald-800 disabled:border-emerald-300 disabled:bg-emerald-300"
+                data-testid="button-add-size"
+              >
                 <Plus size={18} />
                 <span>Add Size / سائز شامل کریں</span>
               </Button>
