@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 type SellItem = StockItem;
+type StockSizeEntry = StockItem["sizes"][number];
 type HoldButtonProps = {
   label: string;
   onStep: () => void;
@@ -45,6 +46,30 @@ type HoldButtonProps = {
 
 function digitsOnly(value: string) {
   return value.replace(/\D/g, "");
+}
+
+function sizeSortValue(size: string) {
+  const numeric = Number(size);
+  return Number.isFinite(numeric) ? numeric : Number.MAX_SAFE_INTEGER;
+}
+
+function sortSellSizes(sizes: StockSizeEntry[], selectedSize: string | null) {
+  return [...sizes].sort((a, b) => {
+    if (selectedSize) {
+      if (a.size === selectedSize) return -1;
+      if (b.size === selectedSize) return 1;
+    }
+
+    const aHasStock = a.quantity > 0;
+    const bHasStock = b.quantity > 0;
+    if (aHasStock !== bHasStock) return aHasStock ? -1 : 1;
+
+    const aLowStock = a.quantity > 0 && a.quantity <= 3;
+    const bLowStock = b.quantity > 0 && b.quantity <= 3;
+    if (aLowStock !== bLowStock) return aLowStock ? -1 : 1;
+
+    return sizeSortValue(a.size) - sizeSortValue(b.size) || a.size.localeCompare(b.size);
+  });
 }
 
 function normalizeSearch(value: string) {
@@ -84,19 +109,27 @@ function matchesStockSearch(item: StockItem, search: string) {
 
 function HoldButton({ label, onStep, disabled, children }: HoldButtonProps) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const repeatDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function stopRepeating() {
+    if (repeatDelayRef.current) {
+      clearTimeout(repeatDelayRef.current);
+      repeatDelayRef.current = null;
+    }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
   }
 
-  function startRepeating() {
+  function startRepeating(event: React.PointerEvent<HTMLButtonElement>) {
     if (disabled) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
     onStep();
     stopRepeating();
-    intervalRef.current = setInterval(onStep, 120);
+    repeatDelayRef.current = setTimeout(() => {
+      intervalRef.current = setInterval(onStep, 140);
+    }, 420);
   }
 
   useEffect(() => stopRepeating, []);
@@ -121,6 +154,7 @@ export default function Stock() {
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [sellItem, setSellItem] = useState<SellItem | null>(null);
+  const [sellInitialSize, setSellInitialSize] = useState<string | null>(null);
   const [sellQuantities, setSellQuantities] = useState<Record<string, string>>({});
 
   const { data: items = [], isLoading } = useListStock(
@@ -138,6 +172,11 @@ export default function Stock() {
 
   const totalSellQty =
     sellItem?.sizes.reduce((sum, entry) => sum + (Number(sellQuantities[entry.size]) || 0), 0) ?? 0;
+  const sortedSellSizes = useMemo(
+    () => (sellItem ? sortSellSizes(sellItem.sizes, sellInitialSize) : []),
+    [sellInitialSize, sellItem],
+  );
+  const sellAvailableSizeCount = sellItem?.sizes.filter((entry) => entry.quantity > 0).length ?? 0;
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: getListStockQueryKey() });
@@ -150,7 +189,14 @@ export default function Stock() {
       ? item.sizes.find((entry) => entry.size === initialSize && entry.quantity > 0)
       : null;
     setSellItem(item);
+    setSellInitialSize(initialEntry?.size ?? null);
     setSellQuantities(initialEntry ? { [initialEntry.size]: "1" } : {});
+  }
+
+  function closeSell() {
+    setSellItem(null);
+    setSellInitialSize(null);
+    setSellQuantities({});
   }
 
   function setSellQuantity(size: string, value: number, available: number) {
@@ -241,8 +287,7 @@ export default function Stock() {
                 : `${sellItem.modelCode} - ${qty} pairs from ${saleEntries.length} sizes`,
           });
           invalidate();
-          setSellItem(null);
-          setSellQuantities({});
+          closeSell();
         },
         onError: () => {
           toast({ title: "Error / خرابی", description: "Could not sell / فروخت محفوظ نہیں ہوئی", variant: "destructive" });
@@ -436,17 +481,28 @@ export default function Stock() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={!!sellItem} onOpenChange={(open) => !open && setSellItem(null)}>
-        <DialogContent className="flex max-h-[calc(100svh-1.5rem)] w-[calc(100vw-1rem)] max-w-[24rem] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-h-[calc(100vh-3rem)] sm:w-full sm:max-w-lg">
+      <Dialog open={!!sellItem} onOpenChange={(open) => !open && closeSell()}>
+        <DialogContent
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          className="flex max-h-[calc(100svh-0.75rem)] w-[calc(100vw-0.75rem)] max-w-[26rem] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-h-[calc(100vh-3rem)] sm:w-full sm:max-w-lg"
+        >
           <DialogHeader className="shrink-0 border-b border-border px-5 pb-3 pt-5 pr-12 text-left">
             <DialogTitle className="text-lg">Sell / فروخت کریں</DialogTitle>
           </DialogHeader>
           {sellItem && (
-            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
-              <div className="rounded-xl bg-muted p-3">
-                <p className="text-sm text-muted-foreground">Article / آرٹیکل</p>
-                <p className="text-xl font-bold">{sellItem.brand || sellItem.modelCode}</p>
-                <p className="text-sm text-muted-foreground">{sellItem.modelCode}</p>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+              <div className="rounded-xl border bg-muted/70 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-muted-foreground">Article / آرٹیکل</p>
+                    <p className="truncate text-xl font-bold">{sellItem.brand || sellItem.modelCode}</p>
+                    <p className="text-sm text-muted-foreground">{sellItem.modelCode}</p>
+                  </div>
+                  <div className="rounded-lg bg-background px-3 py-2 text-right">
+                    <p className="text-[10px] font-semibold uppercase leading-none text-muted-foreground">Stock</p>
+                    <p className="text-xl font-black tabular-nums">{sellItem.quantity}</p>
+                  </div>
+                </div>
                 {sellItem.soleType && (
                   <p className="mt-1 text-sm font-semibold text-foreground">
                     {formatSoleType(sellItem.soleType)}
@@ -456,27 +512,33 @@ export default function Stock() {
 
               <div>
                 <div className="mb-2 flex items-center justify-between gap-3">
-                  <p className="text-base font-semibold">Sell Quantities / فروخت تعداد</p>
+                  <div>
+                    <p className="text-base font-semibold">Sell Quantities / فروخت تعداد</p>
+                    <p className="text-xs text-muted-foreground">
+                      {sellAvailableSizeCount} sizes in stock. Low stock sizes show first.
+                    </p>
+                  </div>
                   <p className={`rounded-full px-2 py-1 text-xs font-bold ${totalSellQty > 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                     Total: {totalSellQty}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  {sellItem.sizes.map((entry) => {
+                  {sortedSellSizes.map((entry) => {
                     const quantity = Number(sellQuantities[entry.size]) || 0;
                     const disabled = entry.quantity === 0;
                     const selected = quantity > 0;
+                    const isLowStock = entry.quantity > 0 && entry.quantity <= 3;
                     const stockTone =
                       entry.quantity === 0
-                        ? "bg-red-50 text-red-700 border-red-200"
-                        : entry.quantity <= 3
+                        ? "bg-muted text-muted-foreground border-border"
+                        : isLowStock
                           ? "bg-amber-50 text-amber-700 border-amber-200"
                           : "bg-emerald-50 text-emerald-700 border-emerald-200";
 
                     return (
                       <div
                         key={entry.size}
-                        className={`rounded-xl border p-3 transition-colors ${
+                        className={`rounded-xl border p-2.5 transition-colors ${
                           selected
                             ? "border-primary bg-primary/5 shadow-sm"
                             : disabled
@@ -484,17 +546,29 @@ export default function Stock() {
                               : "border-border bg-card"
                         }`}
                       >
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Size / سائز</p>
-                            <p className={`text-2xl font-black tabular-nums ${selected ? "text-primary" : "text-foreground"}`}>{entry.size}</p>
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Size / سائز</p>
+                              <p className={`text-2xl font-black leading-none tabular-nums ${selected ? "text-primary" : "text-foreground"}`}>{entry.size}</p>
+                            </div>
+                            {entry.size === sellInitialSize && (
+                              <span className="rounded-full bg-primary px-2 py-1 text-[10px] font-bold uppercase leading-none text-primary-foreground">
+                                Picked
+                              </span>
+                            )}
+                            {isLowStock && (
+                              <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold uppercase leading-none text-amber-800">
+                                Last {entry.quantity}
+                              </span>
+                            )}
                           </div>
                           <div className={`rounded-xl border px-3 py-1.5 text-right ${stockTone}`}>
                             <p className="text-[10px] font-semibold uppercase leading-none tracking-normal">Available</p>
                             <p className="text-xl font-black leading-tight tabular-nums">{entry.quantity}</p>
                           </div>
                         </div>
-                        <div className={`flex items-center gap-2 rounded-xl p-2 ${selected ? "bg-primary/10" : "bg-muted"}`}>
+                        <div className={`grid grid-cols-[3.5rem_minmax(0,1fr)_3.5rem] items-center gap-2 rounded-xl p-2 ${selected ? "bg-primary/10" : "bg-muted"}`}>
                           <HoldButton
                             label={`Decrease size ${entry.size} quantity / تعداد کم کریں`}
                             onStep={() => changeSellQty(entry.size, -1, entry.quantity)}
@@ -518,7 +592,7 @@ export default function Stock() {
                               setSellQuantity(entry.size, value, entry.quantity);
                             }}
                             onFocus={(event) => event.target.select()}
-                            className={`h-14 border-0 text-center text-3xl font-bold tabular-nums focus-visible:ring-2 ${
+                            className={`h-14 min-w-0 border-0 text-center text-3xl font-bold tabular-nums focus-visible:ring-2 ${
                               selected ? "bg-background text-primary ring-1 ring-primary/30" : "bg-background"
                             }`}
                             data-testid={`sell-qty-${entry.size}`}
@@ -538,34 +612,34 @@ export default function Stock() {
               </div>
             </div>
           )}
-          <div className="shrink-0 border-t border-border px-5 py-4">
+          <div className="shrink-0 border-t border-border bg-background px-4 py-3 sm:px-5 sm:py-4">
             <div className="mb-3 flex items-center justify-between rounded-xl bg-muted px-3 py-2">
               <span className="text-sm font-semibold text-muted-foreground">Total Sell</span>
               <span className="text-xl font-black text-primary tabular-nums">{totalSellQty}</span>
             </div>
-          <DialogFooter className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:space-x-0">
-            <Button variant="outline" onClick={() => setSellItem(null)} className="h-auto min-h-12 min-w-0 px-2 text-sm">
-              <span className="flex min-w-0 flex-col items-center justify-center leading-tight">
-                <span>Cancel</span>
-                <span dir="rtl">رہنے دیں</span>
-              </span>
-            </Button>
-            <Button
-              onClick={handleSell}
-              disabled={updateItem.isPending || totalSellQty < 1}
-              className="h-auto min-h-12 min-w-0 px-2 text-sm"
-              data-testid="button-confirm-sell"
-            >
-              {updateItem.isPending ? (
-                "..."
-              ) : (
+            <DialogFooter className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:space-x-0">
+              <Button variant="outline" onClick={closeSell} className="h-auto min-h-12 min-w-0 px-2 text-sm">
                 <span className="flex min-w-0 flex-col items-center justify-center leading-tight">
-                  <span>Confirm Sale</span>
-                  <span dir="rtl">فروخت محفوظ کریں</span>
+                  <span>Cancel</span>
+                  <span dir="rtl">رہنے دیں</span>
                 </span>
-              )}
-            </Button>
-          </DialogFooter>
+              </Button>
+              <Button
+                onClick={handleSell}
+                disabled={updateItem.isPending || totalSellQty < 1}
+                className="h-auto min-h-12 min-w-0 px-2 text-sm"
+                data-testid="button-confirm-sell"
+              >
+                {updateItem.isPending ? (
+                  "..."
+                ) : (
+                  <span className="flex min-w-0 flex-col items-center justify-center leading-tight">
+                    <span>Confirm Sale</span>
+                    <span dir="rtl">فروخت محفوظ کریں</span>
+                  </span>
+                )}
+              </Button>
+            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>

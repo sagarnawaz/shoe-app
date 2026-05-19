@@ -110,7 +110,7 @@ function HoldButton({ label, onStep, disabled, children }: HoldButtonProps) {
 const schema = z.object({
   brand: z.string().min(1, "Brand required / برانڈ ضروری ہے"),
   modelCode: z.string().min(1, "Model code required / ماڈل کوڈ ضروری ہے"),
-  soleType: z.string().trim().min(1, "Sole type required / سول ٹائپ ضروری ہے"),
+  soleType: z.string().trim().optional().default(""),
   purchasePrice: z.preprocess(
     (value) => (value === "" || value == null ? 0 : value),
     z.coerce.number().min(0, "0 یا زیادہ ہونا چاہیے"),
@@ -365,7 +365,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
     const payload = {
       brand: values.brand.trim().toUpperCase(),
       modelCode,
-      soleType: values.soleType.trim(),
+      soleType: values.soleType?.trim() ?? "",
       name: undefined,
       sizes,
       purchasePrice: values.purchasePrice,
@@ -595,7 +595,7 @@ export default function StockForm({ mode }: { mode: "new" | "edit" }) {
                 name="soleType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-base font-semibold">Sole Type / سول ٹائپ *</FormLabel>
+                    <FormLabel className="text-base font-semibold">Sole Type / سول ٹائپ</FormLabel>
                     <div className="flex flex-wrap gap-2">
                       {[...SOLE_TYPES, { value: OTHER_SOLE_TYPE, label: "دیگر / Other" }].map((soleType) => (
                         <button

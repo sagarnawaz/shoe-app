@@ -242,6 +242,33 @@
 }
 
 @layer utilities {
+  @keyframes app-splash-float {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-8px) scale(1.02); }
+  }
+
+  @keyframes app-splash-glow {
+    0%, 100% { opacity: .55; transform: scale(.94); }
+    50% { opacity: .9; transform: scale(1.08); }
+  }
+
+  @keyframes app-splash-progress {
+    0% { transform: translateX(-120%); }
+    100% { transform: translateX(240%); }
+  }
+
+  .app-splash-float {
+    animation: app-splash-float 1.8s ease-in-out infinite;
+  }
+
+  .app-splash-glow {
+    animation: app-splash-glow 1.8s ease-in-out infinite;
+  }
+
+  .app-splash-progress {
+    animation: app-splash-progress 1.15s ease-in-out infinite;
+  }
+
   input[type="search"]::-webkit-search-cancel-button { @apply hidden; }
   [contenteditable][data-placeholder]:empty::before {
     content: attr(data-placeholder);

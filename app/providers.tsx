@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AuthGate from "@/components/AuthGate";
 import PwaRegister from "@/components/PwaRegister";
+import OfflineNotice from "@/components/OfflineNotice";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -28,6 +29,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           <div className="min-h-screen bg-background">
             {children}
             <BottomNav />
+            <OfflineNotice />
           </div>
         </AuthGate>
         <PwaRegister />

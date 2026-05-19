@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import SplashScreen from "@/components/SplashScreen";
 import { useToast } from "@/hooks/use-toast";
 import {
   getCurrentLocalUserId,
@@ -19,6 +20,7 @@ import {
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [splashReady, setSplashReady] = useState(false);
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -27,6 +29,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
+    const timer = window.setTimeout(() => setSplashReady(true), 900);
+
     setAuthenticated(Boolean(getCurrentLocalUserId()));
     setLoading(false);
 
@@ -36,7 +40,10 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     }
 
     window.addEventListener(LOGOUT_EVENT, handleLogout);
-    return () => window.removeEventListener(LOGOUT_EVENT, handleLogout);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener(LOGOUT_EVENT, handleLogout);
+    };
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -83,8 +90,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }
 
-  if (loading) {
-    return <div className="min-h-screen bg-background" />;
+  if (loading || !splashReady) {
+    return <SplashScreen />;
   }
 
   if (!authenticated) {
