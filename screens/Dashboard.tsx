@@ -109,7 +109,7 @@ export default function Dashboard() {
               />
             </div>
 
-            <div className="max-h-80 space-y-2 overflow-y-auto overscroll-contain pr-1">
+            <div className="h-56 space-y-2 overflow-y-auto overscroll-contain scroll-pb-3 pr-1 pb-3 [touch-action:pan-y] [-webkit-overflow-scrolling:touch] sm:h-64">
               {[...stats.finishedSizes, ...stats.lowSizes].map(({ item, entry }) => {
                 const finished = entry.quantity === 0;
 

@@ -3,15 +3,37 @@
 import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
 
+type AppExitNavigator = Navigator & {
+  app?: {
+    exitApp?: () => void;
+  };
+};
+
+type AppExitWindow = Window & {
+  Android?: {
+    closeApp?: () => void;
+    exitApp?: () => void;
+  };
+  Capacitor?: {
+    Plugins?: {
+      App?: {
+        exitApp?: () => void | Promise<void>;
+      };
+    };
+  };
+};
+
 export default function OfflineNotice() {
   const [isOffline, setIsOffline] = useState(false);
   const [showTapMessage, setShowTapMessage] = useState(false);
+  const [showCloseHelp, setShowCloseHelp] = useState(false);
 
   useEffect(() => {
     function updateNetworkStatus() {
       setIsOffline(!navigator.onLine);
       if (navigator.onLine) {
         setShowTapMessage(false);
+        setShowCloseHelp(false);
       }
     }
 
@@ -29,6 +51,25 @@ export default function OfflineNotice() {
 
   function showOfflineMessage() {
     setShowTapMessage(true);
+  }
+
+  function closeApp() {
+    setShowCloseHelp(false);
+
+    const appWindow = window as AppExitWindow;
+    const appNavigator = window.navigator as AppExitNavigator;
+
+    try {
+      appNavigator.app?.exitApp?.();
+      appWindow.Android?.closeApp?.();
+      appWindow.Android?.exitApp?.();
+      void appWindow.Capacitor?.Plugins?.App?.exitApp?.();
+
+      window.open("", "_self");
+      window.close();
+    } finally {
+      window.setTimeout(() => setShowCloseHelp(true), 250);
+    }
   }
 
   return (
@@ -52,11 +93,16 @@ export default function OfflineNotice() {
             ایپ استعمال کرنے کے لیے انٹرنیٹ ضروری ہے۔
           </p>
         )}
+        {showCloseHelp && (
+          <p className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-sm font-bold leading-relaxed text-amber-900">
+            Use your phone Back button or app switcher to close the app.
+          </p>
+        )}
         <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
-            window.close();
+            closeApp();
           }}
           className="mt-5 min-h-11 w-full rounded-xl bg-amber-700 px-4 py-2 text-sm font-bold text-white active:bg-amber-800"
         >

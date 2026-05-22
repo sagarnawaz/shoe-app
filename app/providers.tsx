@@ -29,9 +29,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           <div className="min-h-screen bg-background">
             {children}
             <BottomNav />
-            <OfflineNotice />
           </div>
         </AuthGate>
+        <OfflineNotice />
         <PwaRegister />
         <Toaster />
       </TooltipProvider>

@@ -109,27 +109,19 @@ function matchesStockSearch(item: StockItem, search: string) {
 
 function HoldButton({ label, onStep, disabled, children }: HoldButtonProps) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const repeatDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function stopRepeating() {
-    if (repeatDelayRef.current) {
-      clearTimeout(repeatDelayRef.current);
-      repeatDelayRef.current = null;
-    }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
   }
 
-  function startRepeating(event: React.PointerEvent<HTMLButtonElement>) {
+  function startRepeating() {
     if (disabled) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
     onStep();
     stopRepeating();
-    repeatDelayRef.current = setTimeout(() => {
-      intervalRef.current = setInterval(onStep, 140);
-    }, 420);
+    intervalRef.current = setInterval(onStep, 120);
   }
 
   useEffect(() => stopRepeating, []);
@@ -390,8 +382,10 @@ export default function Stock() {
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap justify-end gap-2 md:min-h-[72px] md:content-start">
-                {item.sizes.map((entry) => (
+              <div className="mt-4 flex flex-wrap justify-start gap-2 md:min-h-[72px] md:content-start">
+                {[...item.sizes]
+                  .sort((a, b) => sizeSortValue(a.size) - sizeSortValue(b.size) || a.size.localeCompare(b.size))
+                  .map((entry) => (
                   <button
                     key={entry.size}
                     type="button"
@@ -518,9 +512,6 @@ export default function Stock() {
                       {sellAvailableSizeCount} sizes in stock. Low stock sizes show first.
                     </p>
                   </div>
-                  <p className={`rounded-full px-2 py-1 text-xs font-bold ${totalSellQty > 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                    Total: {totalSellQty}
-                  </p>
                 </div>
                 <div className="space-y-2">
                   {sortedSellSizes.map((entry) => {
